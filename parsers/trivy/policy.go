@@ -53,6 +53,14 @@ var argsPolicy = policy.ArgsPolicy{
 	"--skip-java-db-update": nil,
 	"--download-db-only":    nil,
 
+	// Database source. trivy fetches its vulnerability database from
+	// ghcr.io/aquasecurity/trivy-db (and the Java index from trivy-java-db)
+	// as OCI artefacts. An air-gapped estate mirrors those artefacts and
+	// names the mirror here. The value is an image reference and nothing
+	// else: never a URL, a path or a host.
+	"--db-repository":      policy.ImageRef,
+	"--java-db-repository": policy.ImageRef,
+
 	// Throughput and diagnostics that do not change what is reached.
 	"--timeout":     policy.AllowAny,
 	"--parallel":    policy.Numeric,

@@ -1,0 +1,22 @@
+# The one template the nuclei smoke case runs (scripts/tool-smoke.sh). It
+# matches the fixed title the smoke target serves, so the case asserts that
+# nuclei ran, loaded a template, matched, and the parser turned the JSONL
+# event into a Finding — without depending on the public template set.
+id: gibson-smoke-http-title
+
+info:
+  name: Gibson smoke target title
+  author: zeroroot
+  severity: info
+  description: Fires when the smoke target serves its known title.
+  tags: smoke
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "Gibson smoke target"

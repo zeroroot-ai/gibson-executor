@@ -1,0 +1,98 @@
+name: release
+
+# Publishes the --list-tools OCI catalog artifact on release.
+# Image build has moved to image.yml (org reusable, slice 1.2, .github#47).
+# Catalog artifact: ghcr.io/zeroroot-ai/gibson-executor-catalog
+#
+# The tag-push trigger only fires for hand-pushed tags: release-please tags
+# are pushed with the default GITHUB_TOKEN, which GitHub deliberately never
+# lets fire `on: push: tags:` workflows (anti-recursion, gibson#96/#118) —
+# which is why no catalog artifact was ever published. release-please.yml
+# chains this workflow via workflow_call with the fresh tag as version_tag.
+# workflow_dispatch (with version_tag) exists to backfill missed releases.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_call:
+    inputs:
+      version_tag:
+        required: false
+        type: string
+        default: ""
+        description: Release tag (e.g. v0.108.0) to build the catalog from.
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        required: false
+        type: string
+        default: ""
+        description: Release tag (e.g. v0.108.0) to build the catalog from.
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  catalog:
+    name: publish tool catalog as OCI artifact
+    runs-on: ubuntu-24.04
+    steps:
+      # On workflow_call/dispatch the run's ref is the caller's (main), not
+      # the tag — check out the release tag explicitly so the catalog is
+      # built from the released tree. Empty ref = default behaviour (tag push).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.version_tag || '' }}
+
+      - name: set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: compute tags
+        id: tags
+        env:
+          # version_tag input (workflow_call/dispatch) wins over the ref name
+          # — on chained release-please runs the ref is main, not the tag.
+          RELEASE_TAG: ${{ inputs.version_tag || github.ref_name }}
+        run: |
+          VERSION="${RELEASE_TAG#v}"   # v0.1.0 -> 0.1.0
+          MAJOR="v$(echo "$VERSION" | cut -d. -f1)"
+          echo "semver=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "major=${MAJOR}" >> "$GITHUB_OUTPUT"
+
+      - name: log in to GHCR
+        uses: zeroroot-ai/.github/.github/actions/ghcr-login@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+        with:
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: publish --list-tools catalog as OCI artifact
+        run: |
+          # Build a local binary, capture catalog, push as an OCI artifact
+          # alongside the image so offline operators can ingest it.
+          go version
+          CGO_ENABLED=0 go build -o /tmp/gibson-runner ./cmd/gibson-runner
+          # oras rejects absolute file paths (path-traversal guard), so the
+          # catalog must be workspace-relative (#118 backfill failure).
+          /tmp/gibson-runner --list-tools > catalog.json
+          jq -r '.[] | "  - " + .name + "  " + .version' catalog.json
+
+          # Use oras to push the catalog as an OCI artifact. Install from release.
+          ORAS_VERSION=1.2.0
+          curl -fsSL -o /tmp/oras.tar.gz "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
+          tar -xzf /tmp/oras.tar.gz -C /usr/local/bin oras
+          oras push \
+              "ghcr.io/zeroroot-ai/gibson-executor-catalog:${{ steps.tags.outputs.semver }}" \
+              --artifact-type application/vnd.gibson.executor.catalog.v1+json \
+              catalog.json:application/json
+
+      - name: release notes — parser catalog snapshot
+        if: inputs.version_tag != '' || startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ inputs.version_tag || github.ref_name }}
+        run: |
+          echo "Parser catalog at ${RELEASE_TAG}:" | tee -a "$GITHUB_STEP_SUMMARY"
+          /tmp/gibson-runner --list-tools | jq -r '.[] | "  - \(.name) v\(.version): \(.description)"' >> "$GITHUB_STEP_SUMMARY"

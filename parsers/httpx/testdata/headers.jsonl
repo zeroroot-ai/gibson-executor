@@ -1,0 +1,6 @@
+{"url":"https://bare.example.com","host":"10.0.0.1","scheme":"https","status_code":200,"failed":false,"header":{"content_type":"text/html","server":"nginx"}}
+{"url":"https://hardened.example.com","host":"10.0.0.2","scheme":"https","status_code":200,"failed":false,"header":{"strict_transport_security":"max-age=63072000; includeSubDomains","content_security_policy":"default-src 'self'; frame-ancestors 'none'","x_content_type_options":"nosniff","x_frame_options":"DENY","referrer_policy":"no-referrer"}}
+{"url":"http://plain.example.com","host":"10.0.0.3","scheme":"http","status_code":200,"failed":false,"header":{"content_security_policy":"default-src 'self'; frame-ancestors 'none'","x_content_type_options":"nosniff","referrer_policy":"no-referrer"}}
+{"url":"https://sniffable.example.com","host":"10.0.0.4","scheme":"https","status_code":200,"failed":false,"header":{"strict_transport_security":"max-age=31536000","content_security_policy":"default-src 'self'; frame-ancestors 'none'","x_content_type_options":"text/html","referrer_policy":"no-referrer"}}
+{"url":"https://down.example.com","host":"10.0.0.5","scheme":"https","failed":true,"error":"connection refused"}
+{"url":"https://noheaders.example.com","host":"10.0.0.6","scheme":"https","status_code":200,"failed":false}

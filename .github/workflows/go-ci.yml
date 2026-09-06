@@ -1,0 +1,327 @@
+name: go-ci
+
+# Thin caller for the canonical three-tier Go CI (Epic: cicd-efficiency, board
+# #44, slice S11b, .github#203). See docs/architecture/CICD-CONTEXT.md
+# decisions 8 & 9 (in zeroroot-ai/docs).
+#
+# Replaces the previous single ci.yml, whose one `test` job ran vet/build/
+# smoke-test/`-race`/guard-scripts on every `pull_request` AND `push:main` --
+# a pure double-fire. This file follows the org-wide trigger split instead:
+#
+#   pull_request -> fast tier:   quick contributor signal -- vet/build/test
+#                                 via the reusable, no race, no images.
+#   merge_group  -> heavy tier:  authoritative gate -- race + govulncheck via
+#                                 the reusable.
+#
+# INTENTIONAL TIER CHANGE: the old ci.yml ran `go test -race ./...` on every
+# pull_request. That moves here to the reusable's `heavy` tier, which only
+# runs on merge_group -- the same trigger-split every other repo in this
+# epic slice adopts (mirrors gibson/adk/sdk go-ci.yml). Race detection
+# becomes the merge_group-authoritative signal instead of a per-PR one. Not
+# a silent regression: called out explicitly in the PR body.
+#
+# LINT (#131, #369): the old ci.yml had no golangci-lint step at all, and
+# that follow-up sat open long enough that this repo became the only
+# sibling (gibson, setec, sdk all lint natively) still relying on a
+# developer choosing to run `make check` by hand. #142 added a native
+# `lint` job running the repo-pinned golangci-lint (`make lint`), but
+# gated it `if: github.event_name == 'pull_request'` and never added it to
+# the ruleset's required_status_checks -- so it was advisory on the PR
+# (visible, not enforced) and skipped outright in the merge_group, and a
+# required check that is always skipped is satisfied vacuously. PR #365
+# merged with two real lint findings still red, fixed after the fact in
+# #367. Fixed here, both halves together per #369 (either alone leaves the
+# gate inert): the job now runs on `merge_group` too, and its check name
+# `Lint (golangci-lint)` is added to `gibson-executor-required-checks`'s
+# required_status_checks (out of band, via the GitHub ruleset API -- not a
+# file in this repo). `skip-lint: true` stays set on the reusable's fast
+# tier so golangci-lint doesn't run twice under two different pins -- same
+# reasoning as setec/sdk's go-ci.yml. `make lint` reports only issues NEW
+# since the merge-base (`--new-from-merge-base`, mirrors gibson/setec/sdk),
+# so this lands as a genuinely blocking gate without requiring a
+# whole-repo backlog burndown first: existing findings are baselined by
+# construction, and any new violation on touched lines fails the PR.
+#
+# The merge-base itself needs care under `merge_group`, per #369's explicit
+# warning: `github.base_ref` is unset for that event, so the old
+# `origin/${{ github.base_ref || 'main' }}` expression always fell through
+# to the `|| 'main'` literal there, and whether `origin/main` even resolves
+# to a useful commit depends on what checkout fetched for that specific
+# run -- not something to assume holds. A resolution failure or a
+# meaningless comparison point both risk the same outcome as the bug this
+# PR fixes: a "new since merge-base" diff that computes empty and passes
+# vacuously. `github.event.merge_group.base_sha` sidesteps the ref-lookup
+# question entirely -- it's a commit SHA taken straight from the event
+# payload, always an ancestor of the checked-out queue ref, so `git`
+# already has the object without needing any named ref to resolve it. The
+# lint step uses that SHA directly instead of a branch name when running
+# under `merge_group`.
+#
+# #341 IS FIXED HERE, and it is why this file now owns every per-PR gate in
+# the repo. The finding was that required_status_checks named exactly one job
+# out of the eight that run, so `fast`, `heavy`, `Lint (golangci-lint)`,
+# `binary-smoke-test` and `no-legacy-auth-guard` were all advisory: they ran,
+# they could report red, and the queue merged anyway.
+#
+# The obvious remedy -- list them all in the ruleset -- was rejected. That list
+# lives in a DIFFERENT repo (zeroroot-ai/.github, `rulesets/repo/*.json`) from
+# the workflows it names, so nothing connects a new gate here to the list
+# there, and it falls behind on the first gate anyone adds. It is also how
+# `Lint (golangci-lint)` came to exist only in live ruleset state, one
+# unrelated edit away from being reverted (.github#264).
+#
+# Instead there is ONE required context, `ci-required`, and it `needs:` every
+# gate. Adding a gate means adding it to that `needs:` list in the same PR as
+# the gate itself, in this file, and `check-ci-required-coverage.sh` fails the
+# build if you forget. `policy-guards` and `architectural-doc-coverage` moved
+# in from their own workflow files for this reason -- `needs:` cannot cross
+# workflow files. Nothing renamed: a check-run's context is its JOB name (or
+# `<caller-job> / <reusable-job>`), and the workflow file name is not part of
+# it, so `policy-guards / vault-auth-method-deny-list` still reports under
+# exactly that name and no ruleset entry breaks.
+#
+# CodeQL stays in codeql.yml: it carries a weekly `schedule` cadence of its
+# own, and folding it in would drag the whole Go suite along with it.
+#
+# GOVULNCHECK: the old (now-deleted) security.yaml ran a plain
+# `govulncheck ./...` against this single-module repo on every `pull_request`
+# and every `push:main`. That's now fully redundant with the reusable's
+# `heavy` tier (merge_group), which does the identical root-module scan --
+# re-running it natively here would be pure duplicate compute, so
+# security.yaml is deleted outright rather than retargeted (mirrors sdk's
+# root-module case in sdk/.github/workflows/security.yaml, slice S11b).
+# gibson-executor has no secondary Go modules (examples/, etc.) needing a
+# residual native scan.
+#
+# binary-smoke-test and no-legacy-auth-guard are not steps the reusable
+# knows about, so they stay as small native jobs on pull_request (cheap,
+# fast signal, matches today).
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+
+concurrency:
+  group: go-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---- fast tier (pull_request): reusable mod-tidy/vet/build/test ----
+  fast:
+    if: github.event_name == 'pull_request'
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+    with:
+      tier: fast
+      skip-lint: true # gibson-executor runs its own pinned golangci-lint below (make lint)
+
+  # ---- heavy tier (merge_group): reusable race + govulncheck ----
+  heavy:
+    if: github.event_name == 'merge_group'
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+    with:
+      tier: heavy
+
+  # ---- gibson-executor-specific lint (pull_request AND merge_group) ----
+  # Kept native (not delegated to the reusable's golangci-lint step) so the
+  # Makefile-pinned golangci-lint version and toolchain stay the single
+  # source of truth, mirroring setec/sdk's own `lint` jobs. Runs on both
+  # events -- pull_request for fast contributor feedback, merge_group
+  # because that is the run the required-checks gate actually reads (#369).
+  lint:
+    name: Lint (golangci-lint)
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # merge-base needs full history
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run linter (blocking; new since merge-base)
+        # merge_group has no github.base_ref; use the event's own base_sha
+        # instead, a commit SHA that needs no ref resolution and is always
+        # an ancestor of the checked-out queue ref. See the header
+        # comment's #369 note for why the plain
+        # `origin/${{ github.base_ref || 'main' }}` fallback isn't safe to
+        # reuse here.
+        env:
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            base="$MERGE_GROUP_BASE_SHA"
+          else
+            base="origin/${{ github.base_ref || 'main' }}"
+          fi
+          echo "LINT_BASE resolved to: $base"
+          make lint LINT_BASE="$base"
+
+  # ---- binary build + --list-tools smoke test (fast tier / pull_request) ----
+  # Not covered by the reusable; kept native and unchanged from today's ci.yml.
+  binary-smoke-test:
+    if: github.event_name == 'pull_request'
+    name: binary-smoke-test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: build binary
+        run: CGO_ENABLED=0 go build -o bin/gibson-runner ./cmd/gibson-runner
+
+      - name: --list-tools outputs valid JSON
+        run: |
+          ./bin/gibson-runner --list-tools | jq . >/dev/null
+          echo "Parsers advertised:"
+          ./bin/gibson-runner --list-tools | jq -r '.[].name'
+
+  # ---- tool smoke: every catalogued tool runs AND parses in the built image ----
+  # `binary-smoke-test` proves the catalog is well-formed; this proves each
+  # tool produces entities through the runner ABI (gibson-executor#398). Runs
+  # on both gate lanes because it is the only check that exercises the image
+  # the daemon will actually launch. Builds with the same gha cache scope the
+  # image workflow uses, so a PR's image build warms it.
+  tool-smoke:
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    name: tool-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: build the image under test
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: gibson-executor:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: every catalogued tool runs and parses
+        run: bash scripts/tool-smoke.sh gibson-executor:smoke
+
+      - name: the smoke fails when a tool is missing or has no case
+        run: bash scripts/__tests__/tool-smoke.test.sh gibson-executor:smoke
+
+  # ---- no-legacy-auth guard (fast tier / pull_request) ----
+  # Repo-specific grep-based guard script + its own unit tests. Not covered
+  # by the reusable; kept native and unchanged from today's ci.yml.
+  no-legacy-auth-guard:
+    if: github.event_name == 'pull_request'
+    name: no-legacy-auth-guard
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: install ripgrep
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ripgrep
+
+      - name: no-legacy-auth guard
+        run: bash scripts/check-no-legacy-auth.sh
+
+      - name: no-legacy-auth guard unit tests
+        run: bash scripts/__tests__/check-no-legacy-auth.test.sh
+
+  # ---- moved in from policy-guards.yml (#341) ----
+  # `needs:` cannot cross workflow files, so every gate that ci-required must
+  # cover has to live here. The job id and name are unchanged, so this still
+  # reports as `policy-guards / vault-auth-method-deny-list` -- the context
+  # named in gibson-executor-required-checks. Do not rename the job id.
+  #
+  # One deliberate behaviour change: the old file listed
+  # `types: [opened, edited, synchronize, reopened, ready_for_review]`, which
+  # was copied from the pr-title-lint template. This gate greps SOURCE, not PR
+  # metadata, so `edited` (a title or body edit) re-running it was waste, and
+  # `ready_for_review` is moot under a no-drafts policy (AGENTS.md ss4). Default
+  # types apply now.
+  policy-guards:
+    name: policy-guards
+    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+
+  # ---- moved in from architectural-doc-coverage.yml (#341) ----
+  # Reads the PR body/diff against the docs repo, so it is meaningless in the
+  # merge queue. A job-level `if:` is the correct way to express that: GitHub
+  # reports a *skipped* check run, which satisfies a ruleset and which
+  # ci-required counts as a pass. (A trigger-level `paths:`/event filter would
+  # instead produce NO check run at all -- an absent required context freezes
+  # merge-queue entry. That distinction is .github#202 / deploy#1521.)
+  architectural-doc-coverage:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: zeroroot-ai/.github/.github/workflows/architectural-doc-coverage.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+    secrets:
+      DOCS_REPO_READ_TOKEN: ${{ secrets.DOCS_REPO_READ_TOKEN }}
+
+  # ---- the aggregator's own regression suite ----
+  # ci-required is the one thing standing between a red gate and main, so its
+  # logic is mutation-tested rather than asserted. Runs in both lanes, and is
+  # itself one of ci-required's dependencies: if the tests break, the gate goes
+  # red.
+  ci-required-selftest:
+    name: ci-required-selftest
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Mutation-test the aggregation logic
+        run: bash scripts/__tests__/ci-required-gate.test.sh
+
+      - name: Every gate job is covered by ci-required's needs
+        run: bash scripts/check-ci-required-coverage.sh .github/workflows/go-ci.yml
+
+  # ---- THE required status check (#341, #369) ----
+  # One context, transitively covering every gate above. See
+  # scripts/ci-required-gate.sh for why each semantic choice is what it is.
+  #
+  # `if: always()` is mandatory and not a stylistic preference: GitHub skips a
+  # `needs:` job whenever ANY dependency is skipped, and this repo's gates are
+  # lane-split by design (`fast` on pull_request, `heavy` on merge_group), so
+  # without it this job would vanish on every single run. An ABSENT required
+  # context does not fail the PR -- it freezes merge-queue entry, which is a
+  # far worse failure mode than a red check.
+  #
+  # `${{ toJSON(needs) }}` rather than a hand-written list of job names: the
+  # script then physically cannot skip a dependency that is listed here. The
+  # opposite risk -- a gate job never listed here at all -- is what
+  # ci-required-selftest's coverage check exists for.
+  ci-required:
+    name: ci-required
+    if: always()
+    needs:
+      - fast
+      - heavy
+      - lint
+      - binary-smoke-test
+      - tool-smoke
+      - no-legacy-auth-guard
+      - policy-guards
+      - architectural-doc-coverage
+      - ci-required-selftest
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Evaluate every gate result
+        env:
+          GATE_RESULTS: ${{ toJSON(needs) }}
+        run: bash scripts/ci-required-gate.sh

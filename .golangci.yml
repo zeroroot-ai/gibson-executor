@@ -1,0 +1,105 @@
+# Shared golangci-lint v2 baseline — adopted from
+# zeroroot-ai/.github/templates/golangci-base.yml (slice 2.2, gibson#172).
+# Linter set lives in the base; per-repo section below is the only place
+# to add repo-specific exclusions.
+
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - staticcheck
+    - govet
+    - errcheck
+    - ineffassign
+    - unused
+    - exhaustive
+    - gosec
+    - errorlint
+    - wrapcheck
+    - nilerr
+    - contextcheck
+    - fatcontext
+    - depguard
+    - gocritic
+    - revive
+    - gocyclo
+    - prealloc
+    - dupl
+    - copyloopvar
+    - gocheckcompilerdirectives
+    - intrange
+    - mirror
+    - perfsprint
+    - sloglint
+    - testifylint
+    - thelper
+    - usestdlibvars
+    - whitespace
+
+  settings:
+    staticcheck:
+      checks: ["all"]
+    gosec:
+      severity: medium
+    exhaustive:
+      default-signifies-exhaustive: false
+      check: [switch]
+    gocyclo:
+      min-complexity: 20
+    dupl:
+      threshold: 150
+    gocritic:
+      enabled-tags: [diagnostic, performance, style]
+      disabled-checks: [hugeParam, rangeValCopy]
+
+    # depguard was enabled with no settings, which is not the same as
+    # "no rules": with none configured it applies its own default list,
+    # named Main, that permits the standard library and nothing else.
+    # Because lint runs --new-from-merge-base, that never showed on
+    # existing files — it fired only on files a PR adds, where every line
+    # is new. Adding parsers/trivy produced eight failures for importing
+    # internal/registry and the SDK, which every parser in this repo has
+    # always imported. A guard that rejects the repo's own established
+    # pattern the moment a new file appears is a defect in the guard.
+    #
+    # The rule below is the boundary this repo actually has (CLAUDE.md,
+    # ADR-0054): gibson-executor is the Apache-licensed execution layer,
+    # so it may depend on the public OSS sdk and community libraries, and
+    # must NOT take a dependency on gibson, platform-clients or any other
+    # ELv2/closed module. That is worth enforcing; "no third-party imports
+    # at all" was not.
+    depguard:
+      rules:
+        closed-source-modules:
+          list-mode: lax
+          deny:
+            # Trailing slashes matter: depguard matches by prefix, and a
+            # bare `github.com/zeroroot-ai/gibson` also prefixes
+            # `github.com/zeroroot-ai/gibson-executor` — this repo — so the
+            # first version of this rule denied the repo its own packages.
+            - pkg: github.com/zeroroot-ai/gibson/
+              desc: >-
+                gibson is ELv2. This repo is the Apache-2.0 execution layer
+                (ADR-0054) and must not depend on the closed platform.
+            - pkg: github.com/zeroroot-ai/platform-clients/
+              desc: >-
+                platform-clients was severed in #98; the transport,
+                observability and readiness helpers live under internal/.
+            - pkg: github.com/zeroroot-ai/dashboard/
+              desc: dashboard is ELv2 and is not importable from here.
+
+  exclusions:
+    paths:
+      - ".*\\.pb\\.go$"
+      - ".*_grpc\\.pb\\.go$"
+      - "zz_generated.*\\.go$"
+      - "api/gen/.*"
+    rules: []
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+# allowlist:
+# Per-repo opt-outs go here with a TODO referencing a follow-up issue.

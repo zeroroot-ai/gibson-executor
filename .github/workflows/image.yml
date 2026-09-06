@@ -1,0 +1,54 @@
+name: image
+
+# Builds + pushes ghcr.io/zeroroot-ai/gibson-executor to GHCR.
+# Adopts the org reusable image-build workflow (slice 1.2, .github#47).
+#
+# The catalog OCI artifact (--list-tools) is published separately by release.yml.
+#
+# Version tags (#118): release-please pushes its tags with the default
+# GITHUB_TOKEN, which never fires the `push: tags:` trigger below (GitHub
+# anti-recursion, gibson#96) — so ghcr only ever carried main/latest/sha-*
+# tags. release-please.yml therefore calls this workflow via workflow_call in
+# the same run and passes the fresh tag as version_tag (setec#131 pattern).
+# The tags trigger + tag_pattern remain for hand-pushed tags (which DO fire).
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*.*.*"
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      version_tag:
+        required: false
+        type: string
+        default: ""
+        description: Explicit version tag (e.g. v0.108.0) to add to every image.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+    permissions:
+      # the reusable build never writes repo contents (.github#323)
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+      actions: read
+    with:
+      component_name: gibson-executor
+      component_path: .
+      dockerfile_path: Dockerfile
+      image_name: ghcr.io/zeroroot-ai/gibson-executor
+      tag_pattern: v(.*)
+      version_tag: ${{ inputs.version_tag || '' }}

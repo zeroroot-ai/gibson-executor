@@ -1,0 +1,80 @@
+name: CodeQL
+
+# Epic: cicd-efficiency (board #44), slice S11b, .github#203. Scanner cadence
+# per docs/architecture/CICD-CONTEXT.md decision #9 originally chose
+# merge_group as the authoritative trigger (pre-merge gate) plus a weekly
+# deep scan, to avoid double-firing the scan on both push and PR.
+#
+# #345: that never worked. codeql-action/analyze uploads SARIF against
+# github.ref, which for a merge_group run is the ephemeral
+# refs/heads/gh-readonly-queue/main/pr-N-<sha> branch. GitHub deletes that
+# ref as soon as the queue entry resolves -- usually before the
+# multi-minute analysis finishes -- so the upload 404s "ref ... not found"
+# on effectively every run (confirmed: 0 of the last 5+ merge_group runs
+# uploaded). CodeQL was never a required status check on this repo's
+# ruleset (only policy-guards/vault-auth-method-deny-list is), so merge_group
+# gave no real gating value here -- only the weekly cron ever landed an
+# analysis on main, meaning a regression merged on, say, a Wednesday wasn't
+# visible in the Security tab until the following Tuesday at the earliest.
+#
+# Fix: trigger on push to main instead of merge_group. main is a persisting
+# ref, so uploads succeed on every run -- strictly better cadence than the
+# intended-but-broken merge_group trigger (per-merge instead of weekly),
+# with no double-fire versus decision #9's original concern: one analyze
+# run per merge either way, just triggered post-merge (where upload can
+# actually succeed) instead of pre-merge (where it structurally cannot,
+# per GitHub's merge-queue ref lifecycle -- not something fixable from
+# inside this workflow). Weekly cron kept as a deep-scan fallback.
+#
+# gibson-executor is public, so security-events:write + SARIF upload to the
+# code-scanning Security tab stays as-is (no paid GHAS requirement, unlike
+# gibson's private-repo workaround).
+#
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 8 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze Go
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    env:
+      # #345 secondary observation: plain `go build ./...` (what autobuild
+      # runs) never compiles _test.go files, so CodeQL only extracted 27 of
+      # 58 Go files -- not a build failure, just the default Go extractor
+      # behavior. 58 files - 30 _test.go files - 1 file correctly excluded
+      # by a `//go:build !linux && !darwin` tag on this linux runner
+      # (internal/sandbox/memlimit_other.go) = 27, exactly matching the
+      # observed count. Parser test files exercise attacker-shaped CLI
+      # output parsing and are worth scanning too, so opt in to extracting
+      # them: https://github.com/github/codeql-action/issues/2515.
+      CODEQL_EXTRACTOR_GO_OPTION_EXTRACT_TESTS: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
+        with:
+          languages: go
+          queries: security-extended
+
+      - uses: github/codeql-action/autobuild@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
+
+      - uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4

@@ -120,6 +120,43 @@ func TestArgs_AllowsReportNarrowing(t *testing.T) {
 	}
 }
 
+// TestArgs_DatabaseRepositoryIsAnImageReference pins the air-gap seam: an
+// operator may point trivy at a mirrored database, and only at an OCI
+// reference. A URL, a path or a bare host is stripped, so the flag can
+// never become a way to make the scanner dial something else.
+func TestArgs_DatabaseRepositoryIsAnImageReference(t *testing.T) {
+	for _, args := range [][]string{
+		{"--db-repository", "registry.il.example.mil/mirror/trivy-db:2"},
+		{"--java-db-repository", "registry.il.example.mil/mirror/trivy-java-db:1"},
+		{"--db-repository", "ghcr.io/aquasecurity/trivy-db@sha256:" + strings.Repeat("c", 64)},
+	} {
+		out, err := registry.ApplyPolicy(toolName, args, nil)
+		if err != nil {
+			t.Errorf("%v rejected: %v", args, err)
+			continue
+		}
+		if strings.Join(out, " ") != strings.Join(args, " ") {
+			t.Errorf("%v did not survive intact: %v", args, out)
+		}
+	}
+	for _, args := range [][]string{
+		{"--db-repository", "https://registry.il.example.mil/mirror/trivy-db"},
+		{"--db-repository", "/var/lib/trivy/db"},
+		{"--db-repository", "Registry.Example/Trivy-DB:2"},
+		{"--java-db-repository", "registry.il.example.mil:0/trivy-java-db"},
+	} {
+		out, err := registry.ApplyPolicy(toolName, args, nil)
+		if err != nil {
+			continue // rejected outright is also fine
+		}
+		for _, tok := range out {
+			if tok == args[1] {
+				t.Errorf("%v survived the allowlist as %v", args, out)
+			}
+		}
+	}
+}
+
 // TestBuildArgs_FixesFormatAndPutsTheReferenceLast pins the argv shape.
 func TestBuildArgs_FixesFormatAndPutsTheReferenceLast(t *testing.T) {
 	args, err := buildArgs(registry.ExecuteRequest{

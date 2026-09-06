@@ -203,6 +203,19 @@ func AllowAny(value string) error {
 	return nil
 }
 
+// ImageRef is a Validator that accepts one OCI image reference in the same
+// syntax TargetImageRef accepts for a scan subject:
+//
+//	[registry[:port]/]name[/name...][:tag][@algo:hex]
+//
+// Use it for flags whose value names a registry artefact rather than the
+// scan subject, e.g. trivy's `--db-repository`, so an air-gapped operator
+// can point the scanner at a mirrored database without the flag opening a
+// path, a URL or a host to the caller.
+func ImageRef(value string) error {
+	return validateImageRef(value)
+}
+
 // AllowEnum returns a Validator that accepts only the listed exact-match
 // values. Use for flags whose values are drawn from a fixed set
 // (e.g. nmap's `-T0..-T5` levels or nuclei's `-severity` enums).

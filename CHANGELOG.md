@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.110.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.109.0...v0.110.0) (2026-09-06)
+
+
+### Features
+
+* **trivy:** allow a mirrored vulnerability database repository ([#15](https://github.com/zeroroot-ai/gibson-executor/issues/15)) ([3a29b93](https://github.com/zeroroot-ai/gibson-executor/commit/3a29b93c1b2806053501eaf3b32074642b05315b))
+
 ## [0.109.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.108.0...v0.109.0) (2026-08-30)
 
 

@@ -31,7 +31,7 @@
 ########################
 # Stage 1 — build binary
 ########################
-FROM golang:1.26-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36 AS build
+FROM golang:1.27-bookworm@sha256:648f440f42a0958804efb24df176f806f9d353b41f1c0627f666428e40310f6b AS build
 # The golang base image ships GOTOOLCHAIN=local. go.mod names the toolchain
 # (go 1.26.8 after the stdlib fix) and moves faster than the mirrored image tag,
 # so let the Go toolchain download the version go.mod asks for. Same rule as

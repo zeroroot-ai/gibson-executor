@@ -115,12 +115,13 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     for bin in /out/httpx /out/nuclei /out/subfinder /out/dnsx /out/naabu /out/tlsx; do \
         go version -m "$bin"; \
     done \
-    | awk '$1 == "dep" && $2 ~ /^golang\.org\/x\/(crypto|net|text)$/ { print $2, $3 }' \
+    | awk '$1 == "dep" && $2 ~ /^golang\.org\/x\/(crypto|mod|net|text)$/ { print $2, $3 }' \
     | sort -u > /tmp/linked-deps; \
     cat /tmp/linked-deps; \
     while read -r mod ver; do \
         case "$mod" in \
-            golang.org/x/crypto) floor=v0.55.0 ;; \
+            golang.org/x/crypto) floor=v0.56.0 ;; \
+            golang.org/x/mod)    floor=v0.40.0 ;; \
             golang.org/x/net)    floor=v0.56.0 ;; \
             golang.org/x/text)   floor=v0.39.0 ;; \
             *)                   continue ;; \

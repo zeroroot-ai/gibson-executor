@@ -39,7 +39,8 @@ import (
 // re-checks the floors against the linked binaries and will fail the build
 // rather than let a regression reach a published image.
 import (
-	_ "golang.org/x/crypto/ssh"    // floor: v0.52.0 — naabu shipped v0.46.0 (SSH authorization bypass, knownhosts revocation bypass)
+	_ "golang.org/x/crypto/ssh"    // floor: v0.56.0 — GO-2026-6354/6355 (ssh channel deadlock DoS); naabu shipped v0.46.0
+	_ "golang.org/x/mod/semver"    // floor: v0.40.0 — GO-2026-6179/6180 (sumdb tlog verification bypass); nuclei shipped v0.38.0
 	_ "golang.org/x/net/html"      // floor: v0.56.0 — naabu shipped v0.48.0, subfinder/dnsx v0.55.0
 	_ "golang.org/x/text/language" // floor: v0.39.0 — naabu shipped v0.32.0, subfinder/dnsx v0.37.0
 )

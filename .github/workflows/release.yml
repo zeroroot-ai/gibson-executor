@@ -32,12 +32,14 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   catalog:
     name: publish tool catalog as OCI artifact
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       # On workflow_call/dispatch the run's ref is the caller's (main), not
       # the tag — check out the release tag explicitly so the catalog is

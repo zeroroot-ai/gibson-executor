@@ -24,19 +24,20 @@
 #   - A digest with no accompanying tag is not left alone either:
 #     dependabot-core explicitly resolves a tag-less digest pin against
 #     the `latest` tag, so `golang@sha256:...` would get bumped against
-#     `golang:latest`, not `golang:1.26-bookworm` — a silent switch to a
+#     `golang:latest`, not `golang:1.26.8-bookworm` — a silent switch to a
 #     different image, not just a refreshed one (#362). Keeping the tag
 #     inline is what keeps the automated bump on the same tag lineage.
 
 ########################
 # Stage 1 — build binary
 ########################
-FROM golang:1.27-bookworm@sha256:648f440f42a0958804efb24df176f806f9d353b41f1c0627f666428e40310f6b AS build
-# The golang base image ships GOTOOLCHAIN=local. go.mod names the toolchain
-# (go 1.26.8 after the stdlib fix) and moves faster than the mirrored image tag,
-# so let the Go toolchain download the version go.mod asks for. Same rule as
-# gibson's Dockerfile.
-ENV GOTOOLCHAIN=auto
+FROM golang:1.26.8-bookworm@sha256:9fdc884aacc3bec89b20ffc69f4bb369c78210e3e4f600387b5128b12c199f81 AS build
+# The builder image carries exactly the Go that go.mod names, and the org
+# guard (check-go-toolchain.sh, .github#22) fails a PR where they differ.
+# GOTOOLCHAIN=local makes a mismatch fail the build instead of downloading a
+# toolchain, so the pinned base is the toolchain that built the binary.
+ARG GOTOOLCHAIN=local
+ENV GOTOOLCHAIN=${GOTOOLCHAIN}
 
 WORKDIR /src
 

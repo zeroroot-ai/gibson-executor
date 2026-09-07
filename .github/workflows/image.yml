@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   build:
-    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@ff1284a9ffcb2cd1d2437de2b5bd214de24878b3 # main, 2026-09-07: .github#19 ignore-unfixed image scans
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@f760edb01410e83c4e262218b80f64d939fe80f3 # main, 2026-09-07: .github#22 go toolchain guard
     permissions:
       # the reusable build never writes repo contents (.github#323)
       contents: read
@@ -50,5 +50,8 @@ jobs:
       component_path: .
       dockerfile_path: Dockerfile
       image_name: ghcr.io/zeroroot-ai/gibson-executor
+      # GOTOOLCHAIN=local as a build-arg (.github#22): the build fails when
+      # go.mod names a Go the pinned base does not carry.
+      go_toolchain_local: true
       tag_pattern: v(.*)
       version_tag: ${{ inputs.version_tag || '' }}

@@ -113,7 +113,7 @@ jobs:
   # ---- fast tier (pull_request): reusable mod-tidy/vet/build/test ----
   fast:
     if: github.event_name == 'pull_request'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@ff1284a9ffcb2cd1d2437de2b5bd214de24878b3 # main, 2026-09-07: .github#19 ignore-unfixed image scans
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@f760edb01410e83c4e262218b80f64d939fe80f3 # main, 2026-09-07: .github#22 go toolchain guard
     with:
       tier: fast
       skip-lint: true # gibson-executor runs its own pinned golangci-lint below (make lint)
@@ -121,7 +121,7 @@ jobs:
   # ---- heavy tier (merge_group): reusable race + govulncheck ----
   heavy:
     if: github.event_name == 'merge_group'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@ff1284a9ffcb2cd1d2437de2b5bd214de24878b3 # main, 2026-09-07: .github#19 ignore-unfixed image scans
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@f760edb01410e83c4e262218b80f64d939fe80f3 # main, 2026-09-07: .github#22 go toolchain guard
     with:
       tier: heavy
 
@@ -254,7 +254,7 @@ jobs:
   # types apply now.
   policy-guards:
     name: policy-guards
-    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@ff1284a9ffcb2cd1d2437de2b5bd214de24878b3 # main, 2026-09-07: .github#19 ignore-unfixed image scans
+    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@f760edb01410e83c4e262218b80f64d939fe80f3 # main, 2026-09-07: .github#22 go toolchain guard
 
   # ---- moved in from architectural-doc-coverage.yml (#341) ----
   # Reads the PR body/diff against the docs repo, so it is meaningless in the
@@ -268,7 +268,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: zeroroot-ai/.github/.github/workflows/architectural-doc-coverage.yml@ff1284a9ffcb2cd1d2437de2b5bd214de24878b3 # main, 2026-09-07: .github#19 ignore-unfixed image scans
+    uses: zeroroot-ai/.github/.github/workflows/architectural-doc-coverage.yml@f760edb01410e83c4e262218b80f64d939fe80f3 # main, 2026-09-07: .github#22 go toolchain guard
     secrets:
       DOCS_REPO_READ_TOKEN: ${{ secrets.DOCS_REPO_READ_TOKEN }}
 

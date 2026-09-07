@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.110.1](https://github.com/zeroroot-ai/gibson-executor/compare/v0.110.0...v0.110.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **security:** bump recon tool modules, raise linked-dep floors, scope workflow tokens ([#18](https://github.com/zeroroot-ai/gibson-executor/issues/18)) ([ba11e66](https://github.com/zeroroot-ai/gibson-executor/commit/ba11e66e6c9ce3a0b9cbb779d1162bad3c1cd445))
+
 ## [0.110.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.109.0...v0.110.0) (2026-09-06)
 
 

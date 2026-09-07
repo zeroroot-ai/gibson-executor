@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.110.2](https://github.com/zeroroot-ai/gibson-executor/compare/v0.110.1...v0.110.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **rework:** pin .github reusable workflows to the ignore-unfixed commit ([#21](https://github.com/zeroroot-ai/gibson-executor/issues/21)) ([8584e26](https://github.com/zeroroot-ai/gibson-executor/commit/8584e26e6c5ddf2baa902dcf23a80770066401fe))
+
 ## [0.110.1](https://github.com/zeroroot-ai/gibson-executor/compare/v0.110.0...v0.110.1) (2026-09-07)
 
 

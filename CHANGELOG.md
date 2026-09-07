@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.110.3](https://github.com/zeroroot-ai/gibson-executor/compare/v0.110.2...v0.110.3) (2026-09-07)
+
+
+### Bug Fixes
+
+* **build:** build on the Go that go.mod names, GOTOOLCHAIN=local ([#24](https://github.com/zeroroot-ai/gibson-executor/issues/24)) ([ea58be1](https://github.com/zeroroot-ai/gibson-executor/commit/ea58be1e69002ef685baf4bfe97535c906b864c2))
+
 ## [0.110.2](https://github.com/zeroroot-ai/gibson-executor/compare/v0.110.1...v0.110.2) (2026-09-07)
 
 

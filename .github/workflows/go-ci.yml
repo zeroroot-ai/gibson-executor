@@ -1,8 +1,8 @@
 name: go-ci
 
 # Thin caller for the canonical three-tier Go CI (Epic: cicd-efficiency, board
-# #44, slice S11b, .github#203). See docs/architecture/CICD-CONTEXT.md
-# decisions 8 & 9 (in zeroroot-ai/docs).
+# #44, slice S11b, .github#203). The reusable workflows, and the CI decisions
+# they encode, live in zeroroot-ai/.github.
 #
 # Replaces the previous single ci.yml, whose one `test` job ran vet/build/
 # smoke-test/`-race`/guard-scripts on every `pull_request` AND `push:main` --

@@ -90,8 +90,8 @@ relax the regex.
 
 If you add a new env var the tool runner reads (rare — the existing
 three env vars cover the auth surface), the Helm chart needs a
-matching env entry. That edit lives in `enterprise/deploy/` — see the
-deploy repo's `how-to-add-an-auth-call.md`.
+matching env entry. That edit lives in the umbrella chart, in
+[`zeroroot-ai/charts`](https://github.com/zeroroot-ai/charts).
 
 ## Step 7 — End-to-end smoke test
 

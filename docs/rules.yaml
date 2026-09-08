@@ -1,7 +1,7 @@
 # rules.yaml — zeroroot-ai/gibson-executor
 #
 # Spec: unified-identity-and-authorization Phase J task 10.1.
-# Schema: ../../../core/sdk/docs/rules-schema.yaml v1.0.0.
+# Schema: https://github.com/zeroroot-ai/sdk/blob/main/docs/rules-schema.yaml v1.0.0.
 
 version: "1.0.0"
 

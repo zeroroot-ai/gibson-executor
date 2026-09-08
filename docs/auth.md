@@ -68,7 +68,7 @@ loop is unaware of any auth concerns.
 
 When deployed in Kubernetes, the SPIRE Workload API socket is mounted
 at `/run/spire/sockets/agent.sock`; the SDK's
-[`daemonclient`](../../../core/sdk/daemonclient/) detects it
+[`daemonclient`](https://github.com/zeroroot-ai/sdk/tree/main/daemonclient) detects it
 automatically and adds X509-SVID-backed TLS credentials to the dial.
 The tool runner code does not reach into SPIFFE APIs directly.
 
@@ -101,16 +101,15 @@ in `v0.84.0` and the tool runner has not yet bumped to consume it.
 when the bump lands, the auth wiring shrinks to one call.
 
 For the broader auth architecture (where tokens come from, who validates
-them, how SPIFFE is configured cluster-wide), refer to the ADK's
-[`auth.md`](../../adk/docs/auth.md) — the tool runner is structurally
-identical, just with one Zitadel service account per deployment instead
-of per agent.
+them, how SPIFFE is configured cluster-wide), read the SDK's
+[`auth.md`](https://github.com/zeroroot-ai/sdk/blob/main/docs/auth.md). The
+tool runner is structurally identical. It uses one Zitadel service account per
+deployment instead of one per agent.
 
 ## Cross-link
 
 - Adding a new auth-touching code path: [`how-to-add-an-auth-call.md`](./how-to-add-an-auth-call.md).
 - Wrong vs right code shapes: [`forbidden-patterns.md`](./forbidden-patterns.md).
 - Machine-readable rules: [`rules.yaml`](./rules.yaml).
-- ADK auth (broader architecture): `opensource/adk/docs/auth.md`.
-- SDK identity types: `core/sdk/docs/auth.md`.
-- Daemon-side: `core/gibson/docs/auth.md`.
+- SDK identity types and the broader auth architecture: [`sdk` `docs/auth.md`](https://github.com/zeroroot-ai/sdk/blob/main/docs/auth.md).
+- Daemon-side: [`gibson` `docs/auth.md`](https://github.com/zeroroot-ai/gibson/blob/main/docs/auth.md).

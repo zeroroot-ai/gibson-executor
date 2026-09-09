@@ -18,8 +18,11 @@ of agents. There is no special path for built-in tools.
 
 | Concern | File |
 |---|---|
-| Auth wiring (env → SDK OIDC creds → daemonclient.New) | [`internal/auth/auth.go`](../internal/auth/auth.go) |
 | Build guard against legacy auth | [`scripts/check-no-legacy-auth.sh`](../scripts/check-no-legacy-auth.sh) |
+
+The auth wiring itself is not a file in this repository. This page records
+the model the runner follows. The caller supplies the credentials in the
+environment.
 
 ## Environment variables
 
@@ -32,7 +35,7 @@ The tool runner takes three required env vars and one optional one:
 | `ZITADEL_ISSUER` | Zitadel base URL, e.g. `https://auth.zeroroot.ai`. Token URL is derived as `<ZITADEL_ISSUER>/oauth/v2/token`. |
 | `GIBSON_DAEMON_ADDRESS` | gRPC address of the Envoy front-door. Defaults to `localhost:50002` when running as a sidecar; real deployments set the Envoy public URL. **Note: this env var name is preserved here for historical compatibility with the daemon-client SDK helper; it points to Envoy, not to the daemon directly.** |
 
-[`auth.go:setOIDCEnvVars`](../internal/auth/auth.go) translates the
+`setOIDCEnvVars` translates the
 tool-runner-specific env vars into the SDK's generic
 `OIDC_CLIENT_CREDENTIALS_*` form so `daemonclient.New` picks them up
 via its credential auto-detection. Translation is idempotent — if the
@@ -96,9 +99,7 @@ fails CI on a hit. Keep it green.
 Today the tool runner uses the SDK's `daemonclient.New` directly
 because `agent.Connect` (the higher-level ADK entry point) was added
 in `v0.84.0` and the tool runner has not yet bumped to consume it.
-[`internal/auth/auth.go:26`](../internal/auth/auth.go) carries a
-`TODO(unified-identity-and-authorization 7.1)` for the consolidation —
-when the bump lands, the auth wiring shrinks to one call.
+When the bump lands, the auth wiring shrinks to one call.
 
 For the broader auth architecture (where tokens come from, who validates
 them, how SPIFFE is configured cluster-wide), read the SDK's

@@ -16,7 +16,7 @@ func bearerFromEnv() string {
 }
 ```
 
-Right ([`internal/auth/auth.go`](../internal/auth/auth.go)):
+Right, the shape the SDK OIDC credentials require:
 
 ```go
 const (
@@ -94,7 +94,7 @@ func main() {
 }
 ```
 
-Right ([`internal/auth/auth.go:58`](../internal/auth/auth.go)):
+Right, one client from one call site:
 
 ```go
 func main() {

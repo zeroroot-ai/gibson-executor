@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   build:
-    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@0fed78673650eb244156e92f3a37ab7411e39750 # main, 2026-09-16: arm the pre-push vulnerability gate (.github#85)
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@e55c31f0bb5fe175e4b7f9cb4407be9f292885ce # v0.3.0
     permissions:
       # the reusable build never writes repo contents (.github#323)
       contents: read

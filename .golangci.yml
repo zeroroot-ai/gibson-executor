@@ -64,11 +64,12 @@ linters:
     # pattern the moment a new file appears is a defect in the guard.
     #
     # The rule below is the boundary this repo actually has (CLAUDE.md,
-    # ADR-0054): gibson-executor is the Apache-licensed execution layer,
-    # so it may depend on the public OSS sdk and community libraries, and
-    # must NOT take a dependency on gibson, platform-clients or any other
-    # ELv2/closed module. That is worth enforcing; "no third-party imports
-    # at all" was not.
+    # ADR-0054). gibson-executor is itself Elastic License 2.0, and the
+    # boundary is about which modules it may import, not about its own
+    # licence: it may depend on the public Apache-2.0 sdk and community
+    # libraries, and must NOT take a dependency on gibson, platform-clients
+    # or any other closed module. That is worth enforcing; "no third-party
+    # imports at all" was not.
     depguard:
       rules:
         closed-source-modules:
@@ -80,8 +81,8 @@ linters:
             # first version of this rule denied the repo its own packages.
             - pkg: github.com/zeroroot-ai/gibson/
               desc: >-
-                gibson is ELv2. This repo is the Apache-2.0 execution layer
-                (ADR-0054) and must not depend on the closed platform.
+                gibson is the closed platform. This repo is the execution
+                layer (ADR-0054) and must not depend on it.
             - pkg: github.com/zeroroot-ai/platform-clients/
               desc: >-
                 platform-clients was severed in #98; the transport,

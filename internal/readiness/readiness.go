@@ -2,8 +2,8 @@
 // Copyright 2026 Zero Root AI
 
 // Package readiness is a minimal probe aggregator exposing /readyz and /healthz
-// HTTP handlers. It replaces the platform-clients readiness package so the open
-// (Apache-2.0) execution layer carries no ELv2 dependency (issue #98).
+// HTTP handlers. It replaces the platform-clients readiness package so this
+// execution layer carries no closed-module dependency (issue #98).
 package readiness
 
 import (

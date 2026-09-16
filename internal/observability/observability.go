@@ -2,8 +2,8 @@
 // Copyright 2026 Zero Root AI
 
 // Package observability provides minimal OpenTelemetry + slog initialisation
-// for the runner. It replaces the platform-clients observability package so the
-// open (Apache-2.0) execution layer carries no ELv2 dependency (issue #98,
+// for the runner. It replaces the platform-clients observability package so
+// this execution layer carries no closed-module dependency (issue #98,
 // ADR-0054).
 //
 // Behaviour matches the prior helper: a composite W3C TraceContext + Baggage

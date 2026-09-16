@@ -247,4 +247,10 @@ RUN useradd --system --create-home --shell /usr/sbin/nologin runner
 USER runner:runner
 WORKDIR /home/runner
 
+# The license text travels with the distribution. Apache-2.0 §4(a) and MIT
+# both require the notice to reach every recipient, and a published image is
+# a distribution. /licenses is the OCI convention. Last in the stage so a
+# change here rebuilds nothing else.
+COPY LICENSE /licenses/LICENSE
+
 ENTRYPOINT ["/usr/local/bin/gibson-runner"]

@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   build:
-    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@cc9c979345bd1940cb070a455e0b7a49004c9bac # main, 2026-09-16: unbreak the build (.github#83)
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@271a10c5de3fd796ef375da9658b569ab17d1ad5 # v0.2.0
     permissions:
       # the reusable build never writes repo contents (.github#323)
       contents: read

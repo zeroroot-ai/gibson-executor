@@ -201,7 +201,27 @@ FROM debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc401
 # security updates. The pin still decides where the build starts; this line
 # closes the gap between there and build time. It does NOT replace refreshing
 # the pin — see #353.
-RUN apt-get update && \
+# APT_CACHE_BUST — the reason `apt-get upgrade` was not actually running.
+#
+# Measured 2026-09-16. The layer below is cached by buildx (`cache-from:
+# type=gha`), and its cache key is the instruction text plus the base digest.
+# Neither changes between builds, so the upgrade ran ONCE, on the day this
+# layer was first built, and every build since replayed that layer verbatim.
+# The comment above was true about intent and false about effect.
+#
+# Proof, by accident: on 2026-09-16 a broken step in the org reusable workflow
+# dropped `cache-from`/`cache-to` for one build. That image came out with
+# perl-base 5.40.1-6+deb13u1, libc6 2.41-12+deb13u4 and gzip 1.13-1+deb13u1 —
+# every one patched. The next build, with the cache restored, went back to
+# 5.40.1-6, +deb13u3 and 1.13-1, and Trivy went back to 40 findings.
+#
+# The caller passes a value that changes every run, so this layer and the apt
+# install below it rebuild every time. The builder stage is a separate stage
+# keyed on go.mod and the sources, so none of its cache is lost — the cost is
+# one `apt-get upgrade` per image build, which is the point.
+ARG APT_CACHE_BUST=0
+RUN echo "apt refresh ${APT_CACHE_BUST}" >/dev/null && \
+    apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
         nmap \

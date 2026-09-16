@@ -53,5 +53,9 @@ jobs:
       # GOTOOLCHAIN=local as a build-arg (.github#22): the build fails when
       # go.mod names a Go the pinned base does not carry.
       go_toolchain_local: true
+      # Busts the runtime stage's apt layer on every build. Without it the
+      # buildx GHA cache replays an `apt-get upgrade` that ran once, months
+      # ago — see the ARG comment in the Dockerfile for the measurement.
+      build_args: APT_CACHE_BUST=${{ github.run_id }}
       tag_pattern: v(.*)
       version_tag: ${{ inputs.version_tag || '' }}

@@ -8,7 +8,7 @@ must not inherit a scanner's dependency graph.
 ## The problem it solves
 
 `Dockerfile` used to build these with `go install <pkg>@<version>`. That was
-already an improvement on downloading upstream release zips (#122): the release
+already an improvement on downloading upstream release zips: the release
 zips are built by ProjectDiscovery with an older Go, so they carry stdlib CVEs
 that no pin of ours can clear, and compiling here picks up the current
 toolchain's stdlib.
@@ -25,9 +25,9 @@ last happened to require:
 | dnsx 1.3.0 | — | v0.55.0 | v0.37.0 |
 
 That was 19 HIGH and 7 MEDIUM findings on the published image, including an SSH
-authorization bypass and a `knownhosts` revocation bypass in `x/crypto` (#368).
+authorization bypass and a `knownhosts` revocation bypass in `x/crypto`.
 
-Issue #368 recorded that "a consumer cannot override without a fork or a
+The first triage of those findings recorded that "a consumer cannot override without a fork or a
 `replace` directive (forbidden org-wide)". That turned out not to be true, and
 this module is the counter-example.
 
@@ -64,8 +64,8 @@ shows up is the shipped artifact.
 `parsers/<tool>/` hard-codes an output flag. A major bump that renames or drops
 that flag turns a working tool into a silently broken one: the tool runs, emits
 a shape the parser cannot decode, and the mission fails with a parse error
-rather than an obvious "no such flag". This is not hypothetical — it is why
-`parsers/amass` was removed in #370.
+rather than an obvious "no such flag". This is not hypothetical. It is why
+`parsers/amass` was removed.
 
 Known couplings:
 
@@ -104,7 +104,7 @@ against each other by the build, so they cannot drift apart quietly.
 
 ## `amass` is not here
 
-`parsers/amass` was removed in #370. No shippable amass version accepts the argv
+`parsers/amass` was removed. No shippable amass version accepts the argv
 it built: v3 has the `-json` flag but the oldest dependency tree, v4 dropped
 JSON output entirely and only fails at flag parsing, and v5 removed the embedded
 engine this one-shot exec model needs. Removing it also cleared 44 Trivy

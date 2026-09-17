@@ -42,7 +42,7 @@ most take <200 LOC.
   would need to build to get JSON output (v3 has the flag but the worst
   CVEs; v4 dropped JSON output entirely; v5 removed the embedded engine
   this one-shot exec model requires). Restoring this means parsing v4's
-  `-o`/`-oA` text output instead — a different format, tracked in #370.
+  `-o`/`-oA` text output instead, which is a different format.
 - 🟡 assetfinder — Subdomain
 - 🟡 chaos-client (PD) — Subdomain from PD hosted data
 - 🟡 shuffledns (PD) — Subdomain via wildcard-aware DNS brute

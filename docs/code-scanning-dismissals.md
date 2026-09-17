@@ -39,7 +39,7 @@ for untrusted execution is **the microVM, not the process**. A sandbox escape is
 a `setec` bug; a cross-tenant leak is a `gibson` bug. This repo owns neither
 boundary — it owns the agent that runs *inside* the box.
 
-That is context for **severity**, not a licence to ignore vulnerabilities. It
+That is context for **severity**, not a license to ignore vulnerabilities. It
 never justifies dismissing a vulnerability in this component's own
 request-handling code, and no entry in this ledger does so.
 
@@ -116,7 +116,7 @@ SARIF category `trivy-gibson-tool-runner`, location path
 **Why.** These alerts describe an artifact that no longer exists, under an
 identity that no longer exists, and they cannot be retired by any scan:
 
-1. **Old organisation and old component name.** The location path is
+1. **Old organization and old component name.** The location path is
    `zero-day-ai/gibson-tool-runner`. The org is now `zeroroot-ai` and the
    component is `gibson-executor`. Every one of these alerts was raised before
    both renames.

@@ -10,7 +10,7 @@ One microVM image, one Go binary, N parsers for CLI security and ops tools. The 
 
 ## Architecture
 
-The binary reads a typed proto request from `GIBSON_TOOL_INPUT_B64` (base64 of a protojson-serialised request), dispatches to the matching `registry.Parser`, shells out to the installed CLI, and emits the response on stdout as `===GIBSON_TOOL_OUTPUT===<base64(protojson(response))>` (exit 0) or `===GIBSON_TOOL_ERROR===<message>` (exit 2). Parsers live under `parsers/<tool>/`; each registers via an `init()` call imported by `cmd/gibson-runner/main.go`.
+The binary reads a typed proto request from `GIBSON_TOOL_INPUT_B64` (base64 of a protojson-serialized request), dispatches to the matching `registry.Parser`, shells out to the installed CLI, and emits the response on stdout as `===GIBSON_TOOL_OUTPUT===<base64(protojson(response))>` (exit 0) or `===GIBSON_TOOL_ERROR===<message>` (exit 2). Parsers live under `parsers/<tool>/`; each registers via an `init()` call imported by `cmd/gibson-runner/main.go`.
 
 Each parser translates raw CLI output into `gibson.graphrag.DiscoveryResult` nodes — the taxonomy-aligned graph objects the daemon writes to Neo4j. This repository is licensed under the **Elastic License 2.0** (see [`LICENSE`](LICENSE)); every Go file carries `SPDX-License-Identifier: Elastic-2.0`. Its dependency boundary (ADR-0054) is one way: it depends only on the public Apache-2.0 `sdk` plus community libraries (connectrpc/otel) and must **not** import `platform-clients`, `gibson`, or any other closed module. The transport/observability/readiness primitives it once consumed from `platform-clients` now live in-repo under `internal/`.
 

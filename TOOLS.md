@@ -26,7 +26,7 @@ most take <200 LOC.
   (expiry graded by remaining days, not a boolean)
 - 🟢 trivy — Image/Package/Vulnerability CustomNodes + one Finding per
   affected package (container image scan; the only parser here that looks
-  at the artefact rather than a running service)
+  at the artifact rather than a running service)
 
 ## Network discovery / port scanning
 

@@ -113,7 +113,7 @@ jobs:
   # ---- fast tier (pull_request): reusable mod-tidy/vet/build/test ----
   fast:
     if: github.event_name == 'pull_request'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@017f26148bffdc5d382a265edd863e8a647e7830 # v0.4.0
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@1366fb5a29590e522bf5a74308f55bb39a4edb56 # v0.5.1
     with:
       tier: fast
       skip-lint: true # gibson-executor runs its own pinned golangci-lint below (make lint)
@@ -121,7 +121,7 @@ jobs:
   # ---- heavy tier (merge_group): reusable race + govulncheck ----
   heavy:
     if: github.event_name == 'merge_group'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@017f26148bffdc5d382a265edd863e8a647e7830 # v0.4.0
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@1366fb5a29590e522bf5a74308f55bb39a4edb56 # v0.5.1
     with:
       tier: heavy
 
@@ -254,7 +254,7 @@ jobs:
   # types apply now.
   policy-guards:
     name: policy-guards
-    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@017f26148bffdc5d382a265edd863e8a647e7830 # v0.4.0
+    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@1366fb5a29590e522bf5a74308f55bb39a4edb56 # v0.5.1
 
   # ---- moved in from architectural-doc-coverage.yml (#341) ----
   # Reads the PR body/diff against the docs repo, so it is meaningless in the
@@ -268,7 +268,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: zeroroot-ai/.github/.github/workflows/architectural-doc-coverage.yml@017f26148bffdc5d382a265edd863e8a647e7830 # v0.4.0
+    uses: zeroroot-ai/.github/.github/workflows/architectural-doc-coverage.yml@1366fb5a29590e522bf5a74308f55bb39a4edb56 # v0.5.1
     secrets:
       DOCS_REPO_READ_TOKEN: ${{ secrets.DOCS_REPO_READ_TOKEN }}
 

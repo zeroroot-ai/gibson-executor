@@ -539,7 +539,7 @@ the available "fix" is weaker than what it replaces.
 **What would reverse this** — any one of these:
 
 1. npm gaining first-class support for an integrity-pinned global install
-   (e.g. an `--integrity` flag honoured for `install -g`): take it immediately.
+   (e.g. an `--integrity` flag honored for `install -g`): take it immediately.
 2. A base image tag shipping an npm whose vendored tree is already clean, which
    removes the need for the line entirely.
 3. Evidence that an exact npm version spec can resolve to different content —
@@ -597,7 +597,7 @@ all severities), same Debian layer, same day:**
 `-oA` **text** output instead of the JSON-lines shape this entry's parser
 expected — a different format, not a flag fix. Until then,
 re-adding the binary with no working parser behind it is exactly the
-Entry 7 "installed but not catalogued" failure mode this ledger exists to
+Entry 7 "installed but not cataloged" failure mode this ledger exists to
 catch.
 
 ---

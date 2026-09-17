@@ -43,7 +43,7 @@ Output (stdout):
 6. Add a blank import in `cmd/gibson-runner/main.go` so the parser's init runs.
 7. Add one case line to `CASES` in `scripts/tool-smoke.sh`: the input the
    tool needs against the smoke target and the entity type it must emit.
-   The smoke refuses to run when a catalogued tool has no case.
+   The smoke refuses to run when a cataloged tool has no case.
 
 Most tools are built from source in `tools/recon`. `trivy` is the exception:
 it is installed from its upstream release archive, pinned by version and

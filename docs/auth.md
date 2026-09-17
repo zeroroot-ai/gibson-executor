@@ -39,7 +39,7 @@ The tool runner takes three required env vars and one optional one:
 tool-runner-specific env vars into the SDK's generic
 `OIDC_CLIENT_CREDENTIALS_*` form so `daemonclient.New` picks them up
 via its credential auto-detection. Translation is idempotent — if the
-generic vars are already set (e.g. in tests) they are honoured as-is.
+generic vars are already set (e.g. in tests) they are honored as-is.
 
 ## Connection flow
 

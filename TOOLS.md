@@ -8,7 +8,7 @@ Adding a tool = one parser file under `parsers/<tool>/`, one apt/curl line
 in the Dockerfile, one blank-import in `cmd/gibson-runner/main.go` (binary
 name is unchanged — see README), one golden fixture, and one case line in
 `scripts/tool-smoke.sh` (the CI smoke that runs the tool inside the built
-image and refuses a catalogued tool with no case). Pattern is established;
+image and refuses a cataloged tool with no case). Pattern is established;
 most take <200 LOC.
 
 ## Shipping today (v0.1)

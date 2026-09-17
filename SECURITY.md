@@ -19,7 +19,7 @@ spec** the operator (or a delegated user) submitted. In a multi-tenant
 deployment, the mission spec is a hostile input boundary: callers can
 include any string they want in `req.Args`, and without filtering those
 strings flow directly into the tool's argv. Tools then interpret those
-arguments according to **their** documented behaviour — which often
+arguments according to **their** documented behavior — which often
 includes flags that read or write arbitrary paths, such as nmap's
 `-oN <file>`, masscan's `-oX <file>`, or nuclei's `-templates <dir>`.
 
@@ -98,7 +98,7 @@ before dispatch, so a parser that forgets the call is still unreachable
 with a hostile target.
 
 Where the tool supports an end-of-options terminator, the parser emits
-`--` before the positional target as a second line of defence (nmap
+`--` before the positional target as a second line of defense (nmap
 parses with `getopt_long`, so `--` stops flag interpretation). masscan
 has no documented terminator, so its accepted target syntax is
 correspondingly narrower — an address or a prefix only.
@@ -231,7 +231,7 @@ bound and the pre-exec helper can still set the per-tool ceiling.
 Default: **3 GiB**, raised automatically if the configured output cap
 implies a higher floor.  Override with `TOOL_RUNNER_SELF_MEMORY_BYTES`.
 
-This is defence in depth, not the primary bound — the output cap below
+This is defense in depth, not the primary bound — the output cap below
 is unconditional — so a platform whose seccomp profile refuses
 `setrlimit(2)` logs a warning and continues rather than refusing to
 start.
@@ -300,9 +300,9 @@ resource limits belong to the image or the deployment.
 
 ## What is NOT covered
 
-- **Authorisation of the target.** Validation proves the target is a
+- **Authorization of the target.** Validation proves the target is a
   well-formed address, prefix, name or URL — not that the caller is
-  entitled to scan it. Scope authorisation stays with the daemon.
+  entitled to scan it. Scope authorization stays with the daemon.
 - **Network rate-limiting.** Enforced by the pod's runtime constraints
   and by per-tool `CatalogEntry.Resources` hints, not by this package.
 - **Wall-clock budget across calls.** Each call is individually bounded

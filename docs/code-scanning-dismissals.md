@@ -24,10 +24,10 @@ repo built two.
 | `trivy-gibson-mcp-bridge-runner` | `Dockerfile.mcp-bridge` | The generic MCP-connector host (ADR-0048). Spawned a package-distributed vendor MCP server via `npx`/`uvx` as a stdio subprocess. | **removed 2026-09-01** |
 
 **The MCP-bridge image is gone.** The sdk deleted its `mcpbridge` runtime and
-the `mcp-bridge` runtime mode in zeroroot-ai/sdk#515. MCP is connector-only now
+the `mcp-bridge` runtime mode. MCP is connector-only now
 (ADR-0065 R5). This repo therefore deleted `Dockerfile.mcp-bridge`,
-`cmd/mcp-bridge-runner`, `internal/bridgerunner` and the `bridge` image job
-(#413). Nothing emits the `trivy-gibson-mcp-bridge-runner` category any more.
+`cmd/mcp-bridge-runner`, `internal/bridgerunner` and the `bridge` image job.
+Nothing emits the `trivy-gibson-mcp-bridge-runner` category any more.
 Its open alerts are stranded by design and someone must close them by hand.
 Entries below that name the bridge are history. Read them as history.
 
@@ -39,7 +39,7 @@ for untrusted execution is **the microVM, not the process**. A sandbox escape is
 a `setec` bug; a cross-tenant leak is a `gibson` bug. This repo owns neither
 boundary — it owns the agent that runs *inside* the box.
 
-That is context for **severity**, not a licence to ignore vulnerabilities. It
+That is context for **severity**, not a license to ignore vulnerabilities. It
 never justifies dismissing a vulnerability in this component's own
 request-handling code, and no entry in this ledger does so.
 
@@ -116,7 +116,7 @@ SARIF category `trivy-gibson-tool-runner`, location path
 **Why.** These alerts describe an artifact that no longer exists, under an
 identity that no longer exists, and they cannot be retired by any scan:
 
-1. **Old organisation and old component name.** The location path is
+1. **Old organization and old component name.** The location path is
    `zero-day-ai/gibson-tool-runner`. The org is now `zeroroot-ai` and the
    component is `gibson-executor`. Every one of these alerts was raised before
    both renames.
@@ -127,7 +127,7 @@ identity that no longer exists, and they cannot be retired by any scan:
    write-once — they can never close on their own, no matter what is fixed.
 3. **The underlying findings are already fixed.** 109 of the 339 are Go stdlib
    CVEs against **stdlib v1.21.0 / v1.21.13**. The repo builds with Go 1.26.6,
-   and gibson-executor#122 changed the image to compile `httpx`/`nuclei` from
+   and this repo changed the image to compile `httpx`/`nuclei` from
    source instead of shipping upstream release binaries — which is precisely
    what put a Go 1.21 stdlib in the image. Both changes are on `main`.
 
@@ -147,7 +147,7 @@ immutable history. The *live* posture is tracked by Entry 2 and Entry 3, which
 is what a current scan actually reports.
 
 > **Root cause, tracked separately.** The reason a three-month-old scan is still
-> the newest data on `main` is `zeroroot-ai/.github#258`: `vuln-scan` in
+> the newest data on `main` is a gate in the shared workflow: `vuln-scan` in
 > `reusable-image-build.yml` is gated on `if: startsWith(github.ref, 'refs/tags/')`,
 > so no Trivy analysis ever targets `refs/heads/main`. Until that is fixed, image
 > findings on this repo can be raised but never retired. Dismissing these 339 does
@@ -165,7 +165,7 @@ is what a current scan actually reports.
 
 **Alerts.** 31 findings against `debian:trixie-slim` packages. Not currently in
 the Security tab (see the note above — no main-branch Trivy analysis runs); they
-will surface as new alerts once `.github#258` is fixed. Pre-recorded here so the
+will surface as new alerts once that gate is fixed. Pre-recorded here so the
 follow-up is mechanical rather than another investigation.
 
 **Dismissed reason.** `won't fix`
@@ -175,7 +175,7 @@ follow-up is mechanical rather than another investigation.
 take: the base image is already current `trixie-slim`, pinned by digest. This is
 a "wait for the distro" set, not a "we declined to upgrade" set.
 
-The **Disposition** column is the post-#349 re-audit. "dismissed" means the row
+The **Disposition** column is the all-severity re-audit. "dismissed" means the row
 survived all three questions above and is a genuine Class-C dismissal;
 "eliminated" means the package is gone from the image and the alert closed on
 its own at the next scan.
@@ -187,7 +187,7 @@ its own at the next scan.
 | CVE-2026-57433 | CRITICAL | affected | perl-base | dismissed |
 | CVE-2026-8376 | CRITICAL | affected | perl-base | dismissed |
 | CVE-2025-69720 | HIGH | affected | libtinfo6, ncurses-base, ncurses-bin | dismissed |
-| CVE-2026-12064 | HIGH | affected | curl, libcurl4t64 | **eliminated** (#351) |
+| CVE-2026-12064 | HIGH | affected | curl, libcurl4t64 | **eliminated** (Entry 7) |
 | CVE-2026-41992 | HIGH | affected | gzip | dismissed |
 | CVE-2026-42497 | HIGH | fix_deferred | perl-base | dismissed |
 | CVE-2026-48962 | HIGH | affected | perl-base | dismissed |
@@ -195,15 +195,15 @@ its own at the next scan.
 | CVE-2026-54369 | HIGH | affected | libacl1 | dismissed |
 | CVE-2026-57432 | HIGH | affected | perl-base | dismissed |
 | CVE-2026-58050 | HIGH | affected | libssh2-1t64 | dismissed (executor only — nmap Depends) |
-| CVE-2026-8286 | HIGH | affected | curl, libcurl4t64 | **eliminated** (#351) |
-| CVE-2026-8458 | HIGH | affected | curl, libcurl4t64 | **eliminated** (#351) |
-| CVE-2026-8927 | HIGH | affected | curl, libcurl4t64 | **eliminated** (#351) |
+| CVE-2026-8286 | HIGH | affected | curl, libcurl4t64 | **eliminated** (Entry 7) |
+| CVE-2026-8458 | HIGH | affected | curl, libcurl4t64 | **eliminated** (Entry 7) |
+| CVE-2026-8927 | HIGH | affected | curl, libcurl4t64 | **eliminated** (Entry 7) |
 | CVE-2026-9538 | HIGH | fix_deferred | perl-base | dismissed |
 
 Not in the original table, and fixable after all — see Entry 6:
 CVE-2026-13595, CVE-2026-27456, CVE-2025-14104, CVE-2026-53612, CVE-2026-53613
 and CVE-2026-53614 against the nine-package `util-linux` family, plus the
-lower-severity tail behind the same update. **Fixed in #354, not dismissed.**
+lower-severity tail behind the same update. **Fixed in Entry 6, not dismissed.**
 
 **Reachability.** None of the dismissed packages sits on the agent's
 request-handling path. Both binaries are static `CGO_ENABLED=0` Go binaries:
@@ -219,7 +219,7 @@ The claim that "`curl` is present so go-installed binaries can dial TLS" was
 wrong and is retracted — see Entry 7.
 
 **What would reverse this.** Debian shipping a fixed package (then: rebuild, and
-these retire on their own — and note that with #354 in place a rebuild now
+these retire on their own — and note that with Entry 6's `apt-get upgrade` in place a rebuild now
 actually takes such a fix); any of these packages becoming reachable from a
 parser's exec path; or a proof-of-concept showing exploitation via tool output
 rather than local input.
@@ -227,7 +227,7 @@ rather than local input.
 ## Entry 3 — Upstream-pinned dependencies in bundled tools (Class B)
 
 **Alerts.** 7 findings inside bundled scanner binaries — 2 HIGH (below), plus
-5 lower-severity ones surfaced for the first time by the #349 scan, which reads
+5 lower-severity ones surfaced for the first time by the first scan that reads
 every severity rather than only HIGH/CRITICAL: `golang.org/x/mod` v0.37.0 in
 `nuclei` (CVE-2026-56864, CVE-2026-56865, both UNKNOWN, fixed upstream in
 0.40.0), `golang.org/x/crypto` in `nuclei` (2, UNKNOWN), and CVE-2026-71557
@@ -236,10 +236,10 @@ against `go-git` v5.19.1 (MEDIUM, the same module as the HIGH below).
 All 7 share one root cause and one reversal condition: the version is pinned by
 the *tool's* own `go.mod`, httpx 1.10.0 and nuclei 3.11.1 are the newest
 upstream releases, and `replace` directives are forbidden org-wide. Building
-from source (#122) picks up the current Go stdlib but cannot move a dependency
+from source picks up the current Go stdlib but cannot move a dependency
 the tool itself pins. **Bump both `HTTPX_VERSION` / `NUCLEI_VERSION` on every
-upstream release and re-scan** — that is the only lever this repo has, and #343
-showed it works: 1.9.0 → 1.10.0 and 3.11.0 → 3.11.1 took the language-package
+upstream release and re-scan** — that is the only lever this repo has, and the
+last bump showed it works: 1.9.0 → 1.10.0 and 3.11.0 → 3.11.1 took the language-package
 HIGH/CRITICAL count from 19 to 2.
 
 **Dismissed reason.** `won't fix`
@@ -314,10 +314,10 @@ dismissal must be revisited:
 ## Entry 4 — `gibson-mcp-bridge-runner`'s first-ever scan: 452 findings, 320 removed at source
 
 **Alerts.** 452 Trivy alerts, SARIF category `trivy-gibson-mcp-bridge-runner`,
-raised 2026-08-15 when `.github#258` and #348 together produced the first
+raised 2026-08-15 when the main-branch Trivy gate fix produced the first
 `refs/heads/main` analysis this image has ever had. 116 were HIGH/CRITICAL.
 
-**Not dismissed — fixed** in #350. This entry records *why nearly all of them
+**Not dismissed, fixed.** This entry records *why nearly all of them
 were removable*, because the shape of the answer is reusable.
 
 **The measurement that decided it.** Every one of the 452 carried
@@ -361,9 +361,9 @@ which cleared the CRITICAL in npm's vendored `tar` (7.5.16 → 7.5.19) plus thre
 
 | | findings | HIGH/CRITICAL | dpkg packages |
 |---|---|---|---|
-| before (#349 as filed) | 452 | 116 | 485 |
-| after #350 | 186 | 25 | 81 |
-| after #354 | **132** | **25** | 81 |
+| before (as filed) | 452 | 116 | 485 |
+| after this entry's rework | 186 | 25 | 81 |
+| after Entry 6 | **132** | **25** | 81 |
 
 **Functional verification** (the base swap is the risky part, so it was proven,
 not assumed): `npx -y @modelcontextprotocol/server-everything` fetches and
@@ -375,13 +375,13 @@ of `apt` means Trivy no longer tracks the Node *runtime* as an OS package — a
 CVE in Node itself will not raise an alert here the way `nodejs 20.19.2` did.
 What is bought: a supported LTS runtime instead of an EOL one, and a patchable
 npm. What guards it: the base digest pin, the `# tag:` comment naming the tag
-that digest belongs to, and #353, which tracks the fact that nothing currently
-refreshes an `ARG`-form digest pin. Until #353 is closed this rests on manual
+that digest belongs to, and the open gap that nothing currently
+refreshes an `ARG`-form digest pin. Until that gap is closed this rests on manual
 attention, and that is the weak link in this entry.
 
 **What would reverse this.** Node 24 reaching EOL without the pin moving to the
-next LTS; #353 being closed as "won't fix", leaving the base pin with no refresh
-path; or the bridge gaining a code path that execs `curl`.
+next LTS; a decision not to build a digest refresh path, leaving the base pin
+with none; or the bridge gaining a code path that execs `curl`.
 
 ---
 
@@ -440,7 +440,7 @@ CVE-2026-53612, CVE-2026-53613 and CVE-2026-53614, each against the nine-package
 `util-linux` family (`bsdutils`, `libblkid1`, `liblastlog2-2`, `libmount1`,
 `libsmartcols1`, `libuuid1`, `login`, `mount`, `util-linux`).
 
-**Not dismissed — fixed** in #354.
+**Not dismissed, fixed.**
 
 **Why they were fixable.** Entry 2 assumed `FixedVersion: NONE` meant the base
 image was already current. Only half true: the base digests were current *as
@@ -458,8 +458,7 @@ util-linux:
 
 Both runtime stages now `apt-get upgrade` after `apt-get update`. The digest pin
 still fixes the reproducible starting point; the upgrade closes the gap between
-that point and build time. It does **not** replace refreshing the pin — see
-#353.
+that point and build time. It does **not** replace refreshing the pin.
 
 **What would reverse this.** Nothing; this is a fix, recorded so the reasoning
 error it corrects does not recur. The general lesson is written up as the three
@@ -474,7 +473,7 @@ questions in "Before dismissing anything" above.
 pulled in. 8 were HIGH: CVE-2026-12064, CVE-2026-8286, CVE-2026-8458 and
 CVE-2026-8927, each against both `curl` and `libcurl4t64`.
 
-**Not dismissed — fixed** in #351, by deleting both packages.
+**Not dismissed, fixed** by deleting both packages.
 
 **Why they were removable.** Nothing execs either. `registry.Parsers` covers
 amass, dnsx, httpx, masscan, naabu, nmap, nuclei and subfinder, and every one
@@ -506,8 +505,8 @@ the `RUN npm install -g "npm@${NPM_VERSION}"` line.
 
 **Dismissed reason.** `won't fix`
 
-**Introduced by #350.** This alert did not exist before the bridge-image
-rework; it was created the minute that PR merged. Recording it as *ours* rather
+**Introduced by Entry 4.** This alert did not exist before the bridge-image
+rework. It was created the minute that rework merged. Recording it as *ours* rather
 than as pre-existing noise is the point of this entry — a fix that trades one
 finding for another has to say so.
 
@@ -559,10 +558,9 @@ the image findings and need their own pass.
 **Alerts.** 44 findings in the `trivy-gibson-executor` category against
 `usr/local/bin/amass`, including both new CRITICALs (`CVE-2026-33815`,
 `CVE-2026-33816`, `github.com/jackc/pgx/v5` v5.4.3) and 24 HIGH
-(`golang.org/x/crypto` v0.13.0 and `golang.org/x/net` v0.15.0, both 2023-era —
-#368).
+(`golang.org/x/crypto` v0.13.0 and `golang.org/x/net` v0.15.0, both 2023-era).
 
-**Not dismissed — removed** in #371 (parser + catalog registration +
+**Not dismissed, removed** (parser + catalog registration +
 Dockerfile install/`COPY`), same move as Entry 7's `curl`/`jq`.
 
 **Why this is a removal, not a triage.** Entry 3's Class-B framework assumes
@@ -578,26 +576,26 @@ flag provided but not defined: -json
 | version | verdict |
 |---|---|
 | v3.x | accepts `-json`; oldest dependency tree, worst CVE surface |
-| v4.2.0 (what #352 pinned) | no JSON output at all — fails at flag parsing on every call |
-| v5.x | client/engine HTTP split, no embedded engine — incompatible with this one-shot exec model (#366) |
+| v4.2.0 (the version the Dockerfile pinned) | no JSON output at all — fails at flag parsing on every call |
+| v5.x | client/engine HTTP split, no embedded engine — incompatible with this one-shot exec model |
 
 So this was never a live Class-B tradeoff (CVE surface vs. capability): the
 44 findings bought zero working capability. `--verify-tools` reported `ok
 amass` because it only `LookPath`s the binary; the break only surfaces at
-`enum` time (#370).
+`enum` time.
 
 **Measured, both sides, locally built + scanned (`trivy image --scanners vuln`,
 all severities), same Debian layer, same day:**
 
 | | total | HIGH/CRITICAL |
 |---|---|---|
-| before (main, amass present, matches #368) | 217 | 68 |
-| after (#371, amass removed) | **173** | **44** |
+| before (main, amass present) | 217 | 68 |
+| after (amass removed) | **173** | **44** |
 | delta | **-44** | **-24** |
 
 **What would reverse this.** `parsers/amass` rewritten against v4's `-o`/
 `-oA` **text** output instead of the JSON-lines shape this entry's parser
-expected — a different format, not a flag fix. Tracked in #370. Until then,
+expected — a different format, not a flag fix. Until then,
 re-adding the binary with no working parser behind it is exactly the
 Entry 7 "installed but not catalogued" failure mode this ledger exists to
 catch.
@@ -621,7 +619,7 @@ sat untriaged while the ledger read as complete.
 2. Read the SARIF category on any alert first. Only
    `trivy-gibson-executor` is live. An alert under
    `trivy-gibson-mcp-bridge-runner` is stranded history: nothing emits that
-   category since #413 removed the bridge image.
+   category since the repo removed the bridge image.
 3. For each finding, answer the three questions in "Before dismissing anything"
    **in order**. Do not skip to reachability.
 4. Diff what remains against Entries 2–7. Anything new is un-triaged and must be
@@ -631,12 +629,12 @@ sat untriaged while the ledger read as complete.
 6. When a dismissal's reversal condition is met, reopen the alert
    (`PATCH .../code-scanning/alerts/{n}` with `state=open`) and remove the entry.
 
-### Current baseline (post-#350/#351/#354, locally measured)
+### Current baseline (after Entries 4, 6 and 7, locally measured)
 
 | image | findings | HIGH/CRITICAL | Class A | State |
 |---|---|---|---|---|
 | `gibson-executor` | 143 | 25 | 0 | live |
-| `gibson-mcp-bridge-runner` | 132 | 25 | 0 | removed 2026-09-01 (#413) |
+| `gibson-mcp-bridge-runner` | 132 | 25 | 0 | removed 2026-09-01 |
 
 Of the 25 HIGH/CRITICAL in the executor image: 23 are Debian packages the distro
 has not patched at all (Entry 2), and the remaining 2–3 are dependencies vendored

@@ -113,6 +113,18 @@ func (o OpenPolicy) known(flag string) bool {
 	return validated
 }
 
+// namesToken reports whether the token, once split from any attached value,
+// is a flag this policy denies or validates. ApplyOpen uses it to decide
+// whether the token after a denied flag is that flag's value or a flag of
+// its own.
+func (o OpenPolicy) namesToken(tok string) bool {
+	if !strings.HasPrefix(tok, "-") {
+		return false
+	}
+	flag, _, _ := splitInline(tok, o.known, true)
+	return o.known(flag)
+}
+
 // DeniedFlags lists the refused flags in sorted order, for tests and docs.
 func (o OpenPolicy) DeniedFlags() []string {
 	out := make([]string, 0, len(o.Denied))
@@ -152,6 +164,17 @@ func ApplyOpen(args []string, o OpenPolicy) ([]string, []DroppedFlag, error) {
 
 		validator, allowed, reason := o.decide(flag)
 		if !allowed {
+			// A denied flag takes the token after it with it, unless that
+			// token is a flag this policy names. The open posture cannot
+			// know which denied flags carry a value, and a value that
+			// starts with "-" (`--data-string -sS`) would otherwise be
+			// re-read as a flag the mission never asked for. Dropping one
+			// unknown token too many is recorded in DroppedFlag; leaking a
+			// caller-chosen flag is not.
+			if !inline && !hasValue && i+1 < len(args) && !o.namesToken(args[i+1]) {
+				value = args[i+1]
+				hasValue = true
+			}
 			dropped = append(dropped, DroppedFlag{Flag: flag, Value: value, Reason: reason})
 			if hasValue && !inline {
 				i++

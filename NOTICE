@@ -1,0 +1,15 @@
+gibson-executor
+Copyright 2026 Zero Root AI
+
+This software is licensed under the Elastic License 2.0. The full text of the
+license is in LICENSE, and section "Notices" of that license requires that a
+copy of these terms travels with every copy of the software. The container
+image copies LICENSE and this file to /licenses.
+
+GitHub's license detection does not know the Elastic License 2.0 (it is not in
+the choosealicense.com set that detection reads), so the repository page shows
+no license badge. The license is the one in LICENSE regardless.
+
+Third-party components are installed into the image from the Debian archive
+and from their upstream projects under their own licenses; the Dockerfile
+names each one where it is installed.

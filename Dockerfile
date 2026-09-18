@@ -313,6 +313,6 @@ WORKDIR /home/runner
 # both require the notice to reach every recipient, and a published image is
 # a distribution. /licenses is the OCI convention. Last in the stage so a
 # change here rebuilds nothing else.
-COPY LICENSE /licenses/LICENSE
+COPY LICENSE NOTICE /licenses/
 
 ENTRYPOINT ["/usr/local/bin/gibson-runner"]

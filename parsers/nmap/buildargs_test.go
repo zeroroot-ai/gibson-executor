@@ -116,3 +116,18 @@ func TestBuildArgs_DeniedArgsFlagIsDropped(t *testing.T) {
 		}
 	}
 }
+
+// The real nmap policy: NSE is denied, and the `=` form must not reopen it.
+func TestBuildArgs_ScriptWithAttachedValueNeverReachesArgv(t *testing.T) {
+	for _, arg := range []string{"--script=http-vuln", "--script-args=x=1", "--datadir=/tmp", "-oN/tmp/out"} {
+		args, err := buildArgs(registry.ExecuteRequest{Target: "scanme.nmap.org", Args: []string{arg}})
+		if err != nil {
+			t.Fatalf("%s: buildArgs: %v", arg, err)
+		}
+		for _, a := range args {
+			if strings.HasPrefix(a, "--script") || strings.HasPrefix(a, "--datadir") || strings.HasPrefix(a, "-oN") {
+				t.Fatalf("%s reached argv: %v", arg, args)
+			}
+		}
+	}
+}

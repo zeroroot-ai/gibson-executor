@@ -103,6 +103,16 @@ func (o OpenPolicy) decide(flag string) (v Validator, allowed bool, denyClass st
 	return nil, true, ""
 }
 
+// known reports whether the policy names the flag at all, denied or
+// validated. splitInline uses it to find where a short flag ends.
+func (o OpenPolicy) known(flag string) bool {
+	if _, denied := o.Denied[flag]; denied {
+		return true
+	}
+	_, validated := o.Validators[flag]
+	return validated
+}
+
 // DeniedFlags lists the refused flags in sorted order, for tests and docs.
 func (o OpenPolicy) DeniedFlags() []string {
 	out := make([]string, 0, len(o.Denied))
@@ -129,17 +139,21 @@ func ApplyOpen(args []string, o OpenPolicy) ([]string, []DroppedFlag, error) {
 			continue
 		}
 
-		var value string
-		hasValue := false
-		if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+		// A value attached to the token (`--script=x`, `-oNfile`) must not
+		// hide the flag from the deny set. Split first, decide on the flag.
+		// The open posture is getopt-shaped (nmap), where a short option
+		// carries its value attached, so both forms are split here.
+		flag, value, inline := splitInline(tok, o.known, true)
+		hasValue := inline
+		if !inline && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 			value = args[i+1]
 			hasValue = true
 		}
 
-		validator, allowed, reason := o.decide(tok)
+		validator, allowed, reason := o.decide(flag)
 		if !allowed {
-			dropped = append(dropped, DroppedFlag{Flag: tok, Value: value, Reason: reason})
-			if hasValue {
+			dropped = append(dropped, DroppedFlag{Flag: flag, Value: value, Reason: reason})
+			if hasValue && !inline {
 				i++
 			}
 			continue
@@ -150,17 +164,21 @@ func ApplyOpen(args []string, o OpenPolicy) ([]string, []DroppedFlag, error) {
 		// take values — dropping the value would silently change the run.
 		if validator == nil {
 			out = append(out, tok)
-			if hasValue {
+			if hasValue && !inline {
 				out = append(out, value)
 				i++
 			}
 			continue
 		}
 		if !hasValue {
-			return nil, dropped, fmt.Errorf("flag %q requires a value but none was provided", tok)
+			return nil, dropped, fmt.Errorf("flag %q requires a value but none was provided", flag)
 		}
 		if err := validator(value); err != nil {
-			return nil, dropped, fmt.Errorf("flag %q value rejected: %w", tok, err)
+			return nil, dropped, fmt.Errorf("flag %q value rejected: %w", flag, err)
+		}
+		if inline {
+			out = append(out, tok)
+			continue
 		}
 		out = append(out, tok, value)
 		i++

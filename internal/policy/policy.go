@@ -94,25 +94,33 @@ func ApplyArgs(args []string, p ArgsPolicy) ([]string, []DroppedFlag, error) {
 			continue
 		}
 
+		// The policy is keyed on the bare flag. A caller can attach the
+		// value to the token (`-flag=value`), so the flag is separated from
+		// its value BEFORE the lookup; otherwise the whole token misses the
+		// allowlist and the value rides along unvalidated. The allowlist
+		// posture never splits `-Xvalue`: an unknown token is dropped anyway.
+		flag, value, inline := splitInline(tok, func(f string) bool {
+			_, ok := lookup(p, f)
+			return ok
+		}, false)
+		hasValue := inline
 		// Detect the paired value (if any). If the next token starts
 		// with "-" we treat it as a separate flag.
-		var value string
-		hasValue := false
-		if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+		if !inline && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 			value = args[i+1]
 			hasValue = true
 		}
 
 		// Disallow unknown flags before consulting the validator —
 		// nil-policy short-circuits here so unauthored tools deny by default.
-		validator, allowed := lookup(p, tok)
+		validator, allowed := lookup(p, flag)
 		if !allowed {
 			dropped = append(dropped, DroppedFlag{
-				Flag:   tok,
+				Flag:   flag,
 				Value:  value,
 				Reason: "flag not in tool allowlist",
 			})
-			if hasValue {
+			if hasValue && !inline {
 				i++ // consume the paired value too
 			}
 			continue
@@ -122,22 +130,36 @@ func ApplyArgs(args []string, p ArgsPolicy) ([]string, []DroppedFlag, error) {
 		// Never pair a token with it — the token would ride onto the argv
 		// unvalidated and land as a stray positional (an extra scan
 		// target, an output path). Emit the flag alone and let the next
-		// loop iteration drop the token as a stray positional.
+		// loop iteration drop the token as a stray positional. A value
+		// attached to a boolean flag has no slot to land in, so the whole
+		// token is dropped.
 		if validator == nil {
+			if inline {
+				dropped = append(dropped, DroppedFlag{
+					Flag:   flag,
+					Value:  value,
+					Reason: "boolean flag given an attached value",
+				})
+				continue
+			}
 			out = append(out, tok)
 			continue
 		}
 
 		if !hasValue {
 			return nil, dropped, fmt.Errorf(
-				"flag %q requires a value but none was provided", tok)
+				"flag %q requires a value but none was provided", flag)
 		}
 		if err := validator(value); err != nil {
 			return nil, dropped, fmt.Errorf(
-				"flag %q value rejected: %w", tok, err)
+				"flag %q value rejected: %w", flag, err)
 		}
 
-		// Allow the flag and its validated value.
+		// Allow the flag and its validated value, in the shape it arrived.
+		if inline {
+			out = append(out, tok)
+			continue
+		}
 		out = append(out, tok, value)
 		i++
 	}
@@ -185,6 +207,38 @@ func ApplyOption(p ArgsPolicy, flag, value string) ([]string, error) {
 
 // lookup returns the validator for a flag in the policy, plus an "allowed"
 // boolean. A nil policy denies every flag.
+// splitInline separates a flag token from a value the caller attached to
+// it. Every flag parser accepts `-flag=value` and `--flag=value`, and a
+// getopt-style parser (nmap) also accepts `-Xvalue` for a short option that
+// takes a value. A policy that looks the whole token up lets those forms
+// past an entry keyed on the bare flag: `--script=http-vuln` is not the key
+// `--script`. known reports whether a flag is one the policy has an opinion
+// on (denied or validated).
+//
+// With shortAttached false only the `=` form is split, which is the whole
+// grammar of Go-style parsers (nuclei, subfinder), where `-severity` is one
+// flag and never `-s` with a value. With shortAttached true a single-dash
+// token also resolves to the longest known key that is a proper prefix of
+// it, so `-sI10.0.0.1` is -sI with a value and not -s; a short token no
+// key prefixes stays whole, which is how nmap spells `-sS` and `-Pn`.
+func splitInline(tok string, known func(string) bool, shortAttached bool) (flag, value string, inline bool) {
+	if i := strings.IndexByte(tok, '='); i > 0 {
+		f := tok[:i]
+		if f != "-" && f != "--" {
+			return f, tok[i+1:], true
+		}
+	}
+	if !shortAttached || strings.HasPrefix(tok, "--") {
+		return tok, "", false
+	}
+	for n := len(tok) - 1; n >= 2; n-- {
+		if known(tok[:n]) {
+			return tok[:n], tok[n:], true
+		}
+	}
+	return tok, "", false
+}
+
 func lookup(p ArgsPolicy, flag string) (Validator, bool) {
 	if p == nil {
 		return nil, false

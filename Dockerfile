@@ -56,6 +56,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY tools/recon/go.mod tools/recon/go.sum ./tools/recon/
 RUN --mount=type=cache,target=/go/pkg/mod \
     cd tools/recon && go mod download
+COPY tools/trivy/go.mod tools/trivy/go.sum ./tools/trivy/
+RUN --mount=type=cache,target=/go/pkg/mod \
+    cd tools/trivy && go mod download
 
 # Source.
 COPY . .
@@ -134,69 +137,77 @@ RUN --mount=type=cache,target=/go/pkg/mod \
         fi; \
     done < /tmp/linked-deps
 
-# trivy comes from its upstream release archive, verified by SHA-256 for the
-# architecture being built. Bump = change the version and BOTH sums together,
-# taken from that release's own checksums.txt. A mismatch fails the build.
+# trivy — built from source out of its own module, tools/trivy, for the same
+# reason the ProjectDiscovery tools are built out of tools/recon: the upstream
+# release archive links whatever trivy's own go.mod asks for. v0.74.0 asks for
+# grpc v1.82.1, which carries two fixable HIGH findings, and the publish gate
+# blocked every image from 2026-09-16 to 2026-09-28 because of it (#69). No
+# newer trivy release existed. tools/trivy declares the grpc floor as a direct
+# requirement, minimal version selection takes the maximum, so the floor wins
+# without a replace directive or a fork.
+#
+# It is a separate module from tools/recon on purpose: trivy links a container
+# runtime, several package-manager parsers and cloud SDKs, and in one module
+# with the scanners every bump of either side could move the other's
+# dependencies. Two modules keep the two resolutions apart. See
+# tools/trivy/README.md for the bump procedure.
+#
+# GOEXPERIMENT=jsonv2 is what upstream sets in its own release build
+# (goreleaser.yml); trivy imports encoding/json/v2 and does not compile
+# without it.
+#
+# TRIVY_VERSION is asserted against tools/trivy/go.mod so the two cannot drift:
+# bump both in one commit.
 ARG TRIVY_VERSION=0.74.0
-ARG TRIVY_SHA256_AMD64=2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a
-ARG TRIVY_SHA256_ARM64=b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5
-RUN set -eux; \
-    case "${TARGETARCH}" in \
-        amd64) asset="Linux-64bit";  want="${TRIVY_SHA256_AMD64}" ;; \
-        arm64) asset="Linux-ARM64";  want="${TRIVY_SHA256_ARM64}" ;; \
-        *) echo "FAIL: no pinned trivy checksum for TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    url="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${asset}.tar.gz"; \
-    curl -fsSL --retry 3 -o /tmp/trivy.tar.gz "$url"; \
-    got="$(sha256sum /tmp/trivy.tar.gz | cut -d' ' -f1)"; \
-    if [ "$got" != "$want" ]; then \
-        echo "FAIL: trivy ${TRIVY_VERSION} ${asset} sha256 $got, expected $want" >&2; \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    set -eux; \
+    cd tools/trivy; \
+    grep -qE "^\s+github.com/aquasecurity/trivy v${TRIVY_VERSION}$" go.mod || { \
+        echo "FAIL: TRIVY_VERSION=${TRIVY_VERSION} but tools/trivy/go.mod requires a different trivy" >&2; \
         exit 1; \
-    fi; \
-    tar -xzf /tmp/trivy.tar.gz -C /tmp trivy; \
-    install -m 0755 /tmp/trivy /out/trivy; \
-    rm -f /tmp/trivy.tar.gz /tmp/trivy; \
-    /out/trivy --version
+    }; \
+    CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" GOEXPERIMENT=jsonv2 \
+        go build -trimpath \
+            -ldflags="-s -w -X github.com/aquasecurity/trivy/pkg/version/app.ver=${TRIVY_VERSION}" \
+            -o /out/trivy github.com/aquasecurity/trivy/cmd/trivy
 
-# TRIPWIRE, not a gate. The accepted state of trivy's linked dependencies.
+# What trivy links, read from the binary with `go version -m`, not trusted
+# from go.mod. Two checks:
 #
-# The published trivy release binary links two packages we cannot move, because
-# we do not build it:
+#   grpc — a FLOOR. The reason tools/trivy exists. A future trivy bump that
+#   requires a newer-but-still-vulnerable grpc would pass MVS and only show up
+#   in the shipped binary. Failing here beats finding it in a scan of a
+#   published image.
 #
-#   google.golang.org/grpc            CVE-2026-84445 (HIGH), CVE-2026-84303
-#   github.com/containerd/containerd  CVE-2026-53495
-#
-# v0.74.0 is upstream's NEWEST release and its own go.mod requires exactly these
-# versions, so no bump of ours clears them. Owner decision 2026-09-16: accept,
-# and dismiss the alerts with that reason.
-#
-# An accepted risk that nobody revisits is just an unaccepted one with better
-# paperwork. So: record what we accepted, and fail the build when it CHANGES.
-# A newer trivy that fixes grpc breaks this build ON PURPOSE, and whoever fixes
-# it drops the dismissal in the same change. A newer trivy that makes it worse
-# breaks it too.
-#
-# This does NOT fail on the current vulnerable versions - that is the point of
-# accepting them. Update both values in the same commit as TRIVY_VERSION.
-ARG TRIVY_ACCEPTED_GRPC=v1.82.1
+#   containerd — a TRIPWIRE, not a gate. containerd v2.3.3 carries
+#   CVE-2026-53495 with no fixed release. Owner decision 2026-09-16: accept it
+#   and dismiss the alert with that reason. An accepted risk that nobody
+#   revisits is just an unaccepted one with better paperwork, so the build
+#   fails when the linked version CHANGES in either direction. A newer trivy
+#   that moves containerd breaks this build on purpose, and whoever fixes it
+#   revisits the dismissal in the same change.
+ARG TRIVY_GRPC_FLOOR=v1.83.2
 ARG TRIVY_ACCEPTED_CONTAINERD=v2.3.3
 RUN set -eux; \
     linked() { go version -m /out/trivy | awk -v m="$1" '$1 == "dep" && $2 == m { print $3 }' | head -1; }; \
     got_grpc="$(linked google.golang.org/grpc)"; \
     got_cd="$(linked github.com/containerd/containerd/v2)"; \
     echo "trivy links grpc=${got_grpc} containerd=${got_cd}"; \
-    if [ "${got_grpc}" != "${TRIVY_ACCEPTED_GRPC}" ] || [ "${got_cd}" != "${TRIVY_ACCEPTED_CONTAINERD}" ]; then \
+    lowest="$(printf '%s\n%s\n' "${TRIVY_GRPC_FLOOR}" "${got_grpc}" | sort -V | head -1)"; \
+    if [ -z "${got_grpc}" ] || [ "${lowest}" != "${TRIVY_GRPC_FLOOR}" ]; then \
+        echo "FAIL: trivy links grpc ${got_grpc}, below the ${TRIVY_GRPC_FLOOR} security floor." >&2; \
+        echo "Raise the google.golang.org/grpc requirement in tools/trivy/go.mod." >&2; \
+        exit 1; \
+    fi; \
+    if [ "${got_cd}" != "${TRIVY_ACCEPTED_CONTAINERD}" ]; then \
         echo "" >&2; \
-        echo "TRIVY DEPENDENCIES MOVED." >&2; \
-        echo "  grpc:       accepted ${TRIVY_ACCEPTED_GRPC}, linked ${got_grpc}" >&2; \
-        echo "  containerd: accepted ${TRIVY_ACCEPTED_CONTAINERD}, linked ${got_cd}" >&2; \
-        echo "" >&2; \
-        echo "This is the tripwire working, not a defect. Upstream trivy changed" >&2; \
-        echo "what it links. Do BOTH of these, in one commit:" >&2; \
-        echo "  1. Update TRIVY_ACCEPTED_GRPC / TRIVY_ACCEPTED_CONTAINERD above." >&2; \
-        echo "  2. If a version now clears its CVE, DISMISS-REVERSE the matching" >&2; \
-        echo "     code-scanning alert in this repo. The acceptance was only ever" >&2; \
-        echo "     valid while upstream had no fix." >&2; \
+        echo "TRIVY CONTAINERD MOVED: accepted ${TRIVY_ACCEPTED_CONTAINERD}, linked ${got_cd}." >&2; \
+        echo "This is the tripwire working, not a defect. Do BOTH, in one commit:" >&2; \
+        echo "  1. Update TRIVY_ACCEPTED_CONTAINERD above." >&2; \
+        echo "  2. If the new version clears CVE-2026-53495, DISMISS-REVERSE the" >&2; \
+        echo "     matching code-scanning alert. The acceptance was only ever valid" >&2; \
+        echo "     while upstream had no fix." >&2; \
         exit 1; \
     fi
 

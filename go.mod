@@ -1,6 +1,6 @@
 module github.com/zeroroot-ai/gibson-executor
 
-go 1.26.8
+go 1.27.1
 
 // v1.0.0 was published in error by an early release-please run (2026-05-10),
 // long before the current 0.10x line and with no pre-1.0 sign-off. It hijacks

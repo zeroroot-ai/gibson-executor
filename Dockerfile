@@ -31,7 +31,7 @@
 ########################
 # Stage 1 — build binary
 ########################
-FROM golang:1.26.8-bookworm@sha256:9fdc884aacc3bec89b20ffc69f4bb369c78210e3e4f600387b5128b12c199f81 AS build
+FROM golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS build
 # The builder image carries exactly the Go that go.mod names, and the org
 # guard (check-go-toolchain.sh, .github#22) fails a PR where they differ.
 # GOTOOLCHAIN=local makes a mismatch fail the build instead of downloading a
@@ -142,12 +142,13 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # trivy — built from source out of its own module, tools/trivy, for the same
 # reason the ProjectDiscovery tools are built out of tools/recon: the upstream
-# release archive links whatever trivy's own go.mod asks for. v0.74.0 asks for
-# grpc v1.82.1, which carries two fixable HIGH findings, and the publish gate
-# blocked every image from 2026-09-16 to 2026-09-28 because of it (#69). No
-# newer trivy release existed. tools/trivy declares the grpc floor as a direct
-# requirement, minimal version selection takes the maximum, so the floor wins
-# without a replace directive or a fork.
+# release archive links whatever trivy's own go.mod asks for. The case that
+# built this module: v0.74.0 asked for grpc v1.82.1, which carries two fixable
+# HIGH findings, and the publish gate blocked every image from 2026-09-16 to
+# 2026-09-28 because of it (#69), with no newer trivy release to move to.
+# tools/trivy declares the grpc floor as a direct requirement, minimal version
+# selection takes the maximum, so the floor wins without a replace directive or
+# a fork. The floor stays whatever the current trivy asks for.
 #
 # It is a separate module from tools/recon on purpose: trivy links a container
 # runtime, several package-manager parsers and cloud SDKs, and in one module
@@ -161,7 +162,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 #
 # TRIVY_VERSION is asserted against tools/trivy/go.mod so the two cannot drift:
 # bump both in one commit.
-ARG TRIVY_VERSION=0.74.0
+ARG TRIVY_VERSION=0.75.0
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     set -eux; \
@@ -183,15 +184,22 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 #   in the shipped binary. Failing here beats finding it in a scan of a
 #   published image.
 #
-#   containerd — a TRIPWIRE, not a gate. containerd v2.3.3 carries
-#   CVE-2026-53495 with no fixed release. Owner decision 2026-09-16: accept it
-#   and dismiss the alert with that reason. An accepted risk that nobody
-#   revisits is just an unaccepted one with better paperwork, so the build
-#   fails when the linked version CHANGES in either direction. A newer trivy
-#   that moves containerd breaks this build on purpose, and whoever fixes it
-#   revisits the dismissal in the same change.
+#   containerd — also a FLOOR, since 2026-10-01. It was an exact-match tripwire
+#   while upstream had no fix for CVE-2026-53495 and the owner accepted the risk
+#   on 2026-09-16. Upstream has since published fixes for both open containerd
+#   advisories, so there is no accepted risk left to revisit:
+#
+#     CVE-2026-53495 / GHSA-7jxh-36q5-gcqv  ExecSync goroutine leak, node DoS
+#                                           fixed in 2.3.5 on the 2.3 line
+#     CVE-2026-53493 / GHSA-pg57-6jwg-q645  OCI index graph amplification
+#                                           fixed in 2.4.1 on the 2.4 line
+#
+#   trivy v0.75.0 links v2.4.1, which clears both. The tripwire had to be
+#   re-pinned on every trivy bump that moved containerd, in either direction,
+#   whether or not security changed. A floor asserts the thing that matters and
+#   never needs re-pinning on a forward move.
 ARG TRIVY_GRPC_FLOOR=v1.83.2
-ARG TRIVY_ACCEPTED_CONTAINERD=v2.3.3
+ARG TRIVY_CONTAINERD_FLOOR=v2.4.1
 RUN set -eux; \
     linked() { go version -m /out/trivy | awk -v m="$1" '$1 == "dep" && $2 == m { print $3 }' | head -1; }; \
     got_grpc="$(linked google.golang.org/grpc)"; \
@@ -203,14 +211,11 @@ RUN set -eux; \
         echo "Raise the google.golang.org/grpc requirement in tools/trivy/go.mod." >&2; \
         exit 1; \
     fi; \
-    if [ "${got_cd}" != "${TRIVY_ACCEPTED_CONTAINERD}" ]; then \
-        echo "" >&2; \
-        echo "TRIVY CONTAINERD MOVED: accepted ${TRIVY_ACCEPTED_CONTAINERD}, linked ${got_cd}." >&2; \
-        echo "This is the tripwire working, not a defect. Do BOTH, in one commit:" >&2; \
-        echo "  1. Update TRIVY_ACCEPTED_CONTAINERD above." >&2; \
-        echo "  2. If the new version clears CVE-2026-53495, DISMISS-REVERSE the" >&2; \
-        echo "     matching code-scanning alert. The acceptance was only ever valid" >&2; \
-        echo "     while upstream had no fix." >&2; \
+    lowest_cd="$(printf '%s\n%s\n' "${TRIVY_CONTAINERD_FLOOR}" "${got_cd}" | sort -V | head -1)"; \
+    if [ -z "${got_cd}" ] || [ "${lowest_cd}" != "${TRIVY_CONTAINERD_FLOOR}" ]; then \
+        echo "FAIL: trivy links containerd ${got_cd}, below the ${TRIVY_CONTAINERD_FLOOR} security floor." >&2; \
+        echo "That version is vulnerable to CVE-2026-53495 or CVE-2026-53493." >&2; \
+        echo "Raise the github.com/containerd/containerd/v2 requirement in tools/trivy/go.mod." >&2; \
         exit 1; \
     fi
 

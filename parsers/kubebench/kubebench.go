@@ -146,8 +146,7 @@ func (p *parser) OutputMessage() proto.Message { return nil }
 var errKubeconfigMissing = errors.New(
 	`kube-bench has no kubeconfig: input field "kubeconfig" is missing or empty. ` +
 		`The daemon fills this field from the tenant secret that the target names (gibson#485). ` +
-		`The cluster was not contacted and no control was assessed. ` +
-		`This is not a clean result.`)
+		`This is not a clean result: the cluster was never contacted and no control was assessed`)
 
 var benchmarkRe = regexp.MustCompile(`^cis-\d+\.\d+$`)
 
@@ -274,6 +273,12 @@ func runProc(ctx context.Context, env []string, name string, args ...string) (pr
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	runErr := cmd.Run()
+	if runErr != nil {
+		// Wrapped so the error names the process. The caller decides what a
+		// non-zero exit means — kube-bench exits non-zero on a failed control,
+		// which is a result, not a failure to run.
+		runErr = fmt.Errorf("%s: %w", name, runErr)
+	}
 
 	res := procResult{stdout: stdout.Bytes(), stderr: stderr.Bytes()}
 	if cmd.ProcessState != nil {
@@ -585,7 +590,7 @@ func parseReport(raw []byte, cluster string) (*graphragpb.DiscoveryResult, regis
 		"controls_manual":     strconv.Itoa(len(manual)),
 		"controls_skipped":    strconv.Itoa(len(skipped)),
 		"controls_errored":    strconv.Itoa(len(errored)),
-		"complete":            fmt.Sprint(len(errored) == 0),
+		"complete":            strconv.FormatBool(len(errored) == 0),
 		"not_assessed_manual": strings.Join(manual, ","),
 	}
 	if len(skipped) > 0 {

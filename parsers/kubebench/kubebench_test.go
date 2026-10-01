@@ -98,7 +98,7 @@ func TestGolden_RealCapture(t *testing.T) {
 
 	got := findingsByControl(disc)
 	want := []string{"5.1.3", "5.1.5", "5.1.6", "5.2.2", "5.2.5"}
-	var ids []string
+	ids := make([]string, 0, len(got))
 	for id := range got {
 		ids = append(ids, id)
 	}

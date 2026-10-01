@@ -59,6 +59,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY tools/trivy/go.mod tools/trivy/go.sum ./tools/trivy/
 RUN --mount=type=cache,target=/go/pkg/mod \
     cd tools/trivy && go mod download
+COPY tools/kubebench/go.mod tools/kubebench/go.sum ./tools/kubebench/
+RUN --mount=type=cache,target=/go/pkg/mod \
+    cd tools/kubebench && go mod download
 
 # Source.
 COPY . .
@@ -211,6 +214,55 @@ RUN set -eux; \
         exit 1; \
     fi
 
+# kube-bench — built from source out of its own module, tools/kubebench, for the
+# same reason trivy is: the upstream release archive links whatever kube-bench's
+# own go.mod asks for, and no pin bump of ours can clear a finding in it.
+# KUBE_BENCH_VERSION is asserted against tools/kubebench/go.mod so the two cannot
+# drift: bump both in one commit.
+#
+# The benchmark definitions (cfg/) are not in the binary. They are copied out of
+# the module cache at the same version, so the controls that run are exactly the
+# ones the pinned release shipped. The runtime stage installs them at
+# /etc/kube-bench/cfg and parsers/kubebench passes that path explicitly.
+ARG KUBE_BENCH_VERSION=0.16.0
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    set -eux; \
+    cd tools/kubebench; \
+    grep -qE "^require github.com/aquasecurity/kube-bench v${KUBE_BENCH_VERSION}$" go.mod || { \
+        echo "FAIL: KUBE_BENCH_VERSION=${KUBE_BENCH_VERSION} but tools/kubebench/go.mod requires a different kube-bench" >&2; \
+        exit 1; \
+    }; \
+    CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" \
+        go build -trimpath \
+            -ldflags="-s -w -X github.com/aquasecurity/kube-bench/cmd.KubeBenchVersion=${KUBE_BENCH_VERSION}" \
+            -o /out/kube-bench github.com/aquasecurity/kube-bench; \
+    mkdir -p /out/kube-bench-cfg; \
+    cp -r "$(go list -m -f '{{.Dir}}' github.com/aquasecurity/kube-bench)/cfg/." /out/kube-bench-cfg/; \
+    test -f /out/kube-bench-cfg/config.yaml
+
+# kubectl — the one binary here taken from an upstream release rather than built
+# from source. kube-bench's policies audit scripts call `kubectl`, and so does
+# parsers/kubebench to check the cluster answers before it runs anything.
+# kubectl cannot be built as a dependency: it lives in k8s.io/kubernetes, whose
+# go.mod depends on a long list of replace directives that only apply when it
+# is the main module. So it is pinned by version and verified by SHA-256 per
+# architecture. The build fails rather than install something else.
+#
+# Both sums are from https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/<arch>/kubectl.sha256
+ARG KUBECTL_VERSION=1.37.1
+ARG KUBECTL_SHA256_AMD64=65691ff77eb6fa44c908b77a1082c9f092c3b9733b5cefabec0d1104890e21a8
+ARG KUBECTL_SHA256_ARM64=ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+        amd64) sha="${KUBECTL_SHA256_AMD64}" ;; \
+        arm64) sha="${KUBECTL_SHA256_ARM64}" ;; \
+        *) echo "FAIL: no kubectl checksum for ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL --retry 3 -o /out/kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl"; \
+    echo "${sha}  /out/kubectl" | sha256sum -c -; \
+    chmod 0755 /out/kubectl
+
 ########################
 # Stage 2 — runtime
 ########################
@@ -229,7 +281,11 @@ FROM debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc401
 #
 # Deliberately NOT installed (#349):
 #
-#   curl, jq — nothing in the image execs either. `registry.Parsers` covers
+#   curl — nothing in the image execs it. (jq was removed here for the same
+#     reason and is back: kube-bench's policies audit scripts pipe through it,
+#     so it came back in the change that registered that parser, as the rule
+#     below asks. It is the one apt dependency of a tool, not a tool.)
+#     The original reasoning, for both: `registry.Parsers` covers
 #     dnsx, httpx, masscan, naabu, nmap, nuclei, subfinder, and every one of
 #     those `exec.CommandContext`s its own named binary. curl and jq appear
 #     only in TOOLS.md's 🟡 "long tail" wish-list, which has no parser and
@@ -280,7 +336,16 @@ RUN echo "apt refresh ${APT_CACHE_BUST}" >/dev/null && \
         nmap \
         masscan \
         ca-certificates \
+        jq \
     && rm -rf /var/lib/apt/lists/*
+
+# /bin/sh is bash, not dash. kube-bench runs every audit script with
+# `/bin/sh` (hard-coded in check/check.go) and the scripts use `[[ ]]`, which
+# dash does not have. Measured against the real v0.16.0 binary on this base
+# image: control 5.1.1 returned "/bin/sh: 3: [[: not found" as its value and
+# was graded as an ordinary result. Nothing else in this image runs a shell
+# script, and apt's maintainer scripts have finished by this line.
+RUN ln -sf bash /bin/sh
 
 # Go tools — built from source in the build stage (see the go install block
 # there, #122/#352) and copied in as static binaries. Every one of these has a
@@ -310,6 +375,15 @@ COPY --from=build /out/tlsx /usr/local/bin/tlsx
 # digest-pinned base images are: the build fails rather than installing
 # something else.
 COPY --from=build /out/trivy /usr/local/bin/trivy
+
+# kube-bench and the two things it execs. jq (apt, above) and kubectl are
+# dependencies of kube-bench's audit scripts, not tools of their own: no parser
+# registers them, so catalog_image_test.go lists them in nonToolPackages. The
+# kubectl tool slice (gibson-executor#85) removes kubectl from that list when
+# it registers a parser.
+COPY --from=build /out/kube-bench /usr/local/bin/kube-bench
+COPY --from=build /out/kubectl /usr/local/bin/kubectl
+COPY --from=build /out/kube-bench-cfg /etc/kube-bench/cfg
 
 # Runner binary.
 COPY --from=build /out/gibson-runner /usr/local/bin/gibson-runner

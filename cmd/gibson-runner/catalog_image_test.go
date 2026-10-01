@@ -16,6 +16,13 @@ import (
 // parser tools, so they are expected to have no catalog entry.
 var nonToolPackages = map[string]bool{
 	"ca-certificates": true,
+
+	// kube-bench's audit scripts exec both of these (cfg/*/policies.yaml), and
+	// parsers/kubebench execs kubectl to check the cluster answers. They are
+	// dependencies of a tool, not tools. When a kubectl parser registers
+	// (gibson-executor#85), delete "kubectl" from here.
+	"jq":      true,
+	"kubectl": true,
 }
 
 // TestCatalogAndImageAgree is the anti-drift guard for #352, in both

@@ -27,6 +27,11 @@ most take <200 LOC.
 - 🟢 trivy — Image/Package/Vulnerability CustomNodes + one Finding per
   affected package (container image scan; the only parser here that looks
   at the artifact rather than a running service)
+- 🟡 kube-bench — BenchmarkRun + one Finding per failed CIS control, with the
+  control's raw result as Evidence. Runs the `policies` target only, through
+  the Kubernetes API. Needs a kubeconfig that the daemon supplies
+  (gibson#485): until then it fails with an error that names the missing
+  field. See `tools/kubebench/README.md`.
 
 ## Network discovery / port scanning
 
@@ -139,7 +144,6 @@ most take <200 LOC.
 - 🟡 kube-hunter — Finding (K8s-specific)
 - 🟡 kubesec — Finding (manifest audit)
 - 🟡 kubeaudit — Finding (cluster audit)
-- 🟡 kube-bench — Finding (CIS benchmark)
 - 🔵 kubescape — Finding (NSA/CISA frameworks)
 
 ## Supply chain / SBOM

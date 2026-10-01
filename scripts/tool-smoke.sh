@@ -84,6 +84,14 @@ TIMEOUT_MS=180000
 # `pull access denied for length`. jq has no `::` operator, so the fields
 # cannot collide with the expressions again.
 #
+# A count expression that starts with `ERROR:` inverts the case: the run must
+# FAIL, and the runner's error message must contain the text after the prefix.
+# kube-bench uses it. It needs a kubeconfig the daemon supplies from a tenant
+# secret (gibson#485), which this script cannot supply, so what it proves in
+# the image is the refusal: the binary, the runner, the registry entry and the
+# message that names the missing field. It does NOT prove a scan. That waits
+# on #485 and a cluster, and the exit test on main owns it.
+#
 # Placeholders @IP@ @ALIAS@ @PORT@ @DNS@ @DOMAIN@ @SCANIMAGE@ @TLSHOST@
 # @HERE@ are
 # substituted before the run.
@@ -97,6 +105,7 @@ CASES=(
   'dnsx::{"target":"@ALIAS@","args":["-r","@DNS@"]}::.hosts | length::'
   'tlsx::{"target":"@TLSHOST@"}::.findings | length::'
   'trivy::{"target":"@SCANIMAGE@"}::[.custom_nodes[]? | select(.node_type=="Package")] | length::'
+  'kube-bench::{"target":"smoke-cluster"}::ERROR:kubeconfig::'
 )
 
 # split_case populates the globals CASE_NAME/CASE_INPUT/CASE_EXPR/CASE_EXTRA
@@ -216,6 +225,19 @@ run_case() {
   fi
   resp=$(base64 -d <<<"${line#===GIBSON_TOOL_OUTPUT===}")
   err=$(jq -r '.error.message // empty' <<<"$resp")
+  if [[ "$expr" == ERROR:* ]]; then
+    local want="${expr#ERROR:}"
+    if [ -z "$err" ]; then
+      fail "$name: expected an error naming \`$want\` and the tool returned a result. An absent credential must never produce a result"
+      return 1
+    fi
+    if [[ "$err" != *"$want"* ]]; then
+      fail "$name: expected an error naming \`$want\`, got: $err"
+      return 1
+    fi
+    log "ok   $name: refused as designed, naming \`$want\` in $((t1 - t0))s"
+    return 0
+  fi
   if [ -n "$err" ]; then
     # The runner's message says the tool failed; the tool's own stderr says
     # why. Reporting only the former turns every tool failure into "exit

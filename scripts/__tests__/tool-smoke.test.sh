@@ -106,4 +106,37 @@ else
 fi
 rm -f "$BADSMOKE"
 
+# --- fixture 4: an ERROR: case whose tool returns a result ----------------
+# The kube-bench case passes only when the tool REFUSES. A tool that returned a
+# result instead (an empty one reads as a clean cluster) must fail the case and
+# be named. The wrapper makes kube-bench answer with an empty success; every
+# other call passes through.
+CLEAN="gibson-executor-smoke-fixture-cleankubebench:$$"
+docker build -q -t "$CLEAN" --build-arg BASE="$IMAGE" - <<'EOF' >/dev/null
+ARG BASE
+FROM ${BASE}
+USER root
+RUN mv /usr/local/bin/gibson-runner /usr/local/bin/gibson-runner.real && \
+    printf '%s\n' '#!/bin/sh' \
+      'if [ "$GIBSON_TOOL_NAME" = "kube-bench" ]; then' \
+      '  printf "===GIBSON_TOOL_OUTPUT===%s\n" "$(printf "{\"outputJson\":\"{}\"}" | base64 -w0)"' \
+      'else' \
+      '  exec /usr/local/bin/gibson-runner.real "$@"' \
+      'fi' > /usr/local/bin/gibson-runner && chmod 0755 /usr/local/bin/gibson-runner
+USER runner:runner
+EOF
+out=$(bash "$SMOKE" "$CLEAN" kube-bench 2>&1)
+code=$?
+if [ "$code" -eq 0 ]; then
+  echo "FAIL fixture 4: smoke passed although kube-bench returned an empty result with no kubeconfig"
+  rc=1
+elif ! grep -q '^FAIL kube-bench: expected an error' <<<"$out"; then
+  echo "FAIL fixture 4: smoke failed but not on the kube-bench refusal. Output:"
+  echo "$out"
+  rc=1
+else
+  echo "ok   fixture 4: a kube-bench that returns a result without a kubeconfig fails the run and is named"
+fi
+docker rmi -f "$CLEAN" >/dev/null 2>&1 || true
+
 exit "$rc"

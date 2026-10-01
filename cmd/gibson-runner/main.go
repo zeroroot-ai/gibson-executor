@@ -62,6 +62,7 @@ import (
 	// against v4's -o/-oA text output.
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/dnsx"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/httpx"
+	_ "github.com/zeroroot-ai/gibson-executor/parsers/kubebench"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/masscan"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/naabu"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/nmap"

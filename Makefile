@@ -51,7 +51,7 @@ list-tools: bin ## Build the binary and print its parser catalog as JSON.
 # version is never lower than go.mod's `go` target — golangci v2 refuses to
 # load a newer target otherwise, the "v2 trap" that bit sdk#355 / adk#154 /
 # gibson#1234.
-GOLANGCI_LINT_VERSION := v2.8.0
+GOLANGCI_LINT_VERSION := v2.14.0
 
 # Toolchain used to BUILD golangci-lint, derived from go.mod's `go`
 # directive so it can never drift when go.mod bumps. golangci's own go.mod

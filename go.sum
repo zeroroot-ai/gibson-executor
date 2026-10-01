@@ -21,8 +21,8 @@ github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 h1:/Tnpcb2E0Pz/tN9s3bfEY2Q8ePC
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0/go.mod h1:zOBXOsUaBSjKgmH4OGzV1esUpR3oUSCPYVd2cUBjKYY=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
-github.com/zeroroot-ai/sdk v0.184.0 h1:ZhiX6LW9JAJcicEvbddyjuZl7Yjnx/CP1UyB68GifAI=
-github.com/zeroroot-ai/sdk v0.184.0/go.mod h1:w8gs8qpQ558FFO9KXiN+axutjVlW3MDd09a96iMG1Zo=
+github.com/zeroroot-ai/sdk v0.185.0 h1:jacs2fe7Km5d+cVYEv6sTu4U4G/70Nxo10IO147nYjc=
+github.com/zeroroot-ai/sdk v0.185.0/go.mod h1:w8gs8qpQ558FFO9KXiN+axutjVlW3MDd09a96iMG1Zo=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/otel v1.46.0 h1:FHt5/CDyVxi/8IM1CH7VE/rRgq3kLHa2mSTVMO8AWyc=

@@ -53,6 +53,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
@@ -148,7 +149,7 @@ var errKubeconfigMissing = errors.New(
 		`The cluster was not contacted and no control was assessed. ` +
 		`This is not a clean result.`)
 
-var benchmarkRe = regexp.MustCompile(`^cis-[0-9]+\.[0-9]+$`)
+var benchmarkRe = regexp.MustCompile(`^cis-\d+\.\d+$`)
 
 // config is the validated input.
 type config struct {
@@ -481,7 +482,7 @@ func auditFault(actual string) (string, bool) {
 //	an error        the audit command failed, or the control has no tests
 //
 // Only the reason field and the audit output tell them apart.
-func classify(c check) (outcome, string) {
+func classify(c check) (verdict outcome, reason string) {
 	switch c.Status {
 	case "PASS":
 		return outcomePass, ""
@@ -578,12 +579,12 @@ func parseReport(raw []byte, cluster string) (*graphragpb.DiscoveryResult, regis
 		"benchmark":           benchmark,
 		"kubernetes_version":  detected,
 		"target":              "policies",
-		"controls_assessed":   fmt.Sprint(assessed),
-		"controls_passed":     fmt.Sprint(passed),
-		"controls_failed":     fmt.Sprint(failed),
-		"controls_manual":     fmt.Sprint(len(manual)),
-		"controls_skipped":    fmt.Sprint(len(skipped)),
-		"controls_errored":    fmt.Sprint(len(errored)),
+		"controls_assessed":   strconv.Itoa(assessed),
+		"controls_passed":     strconv.Itoa(passed),
+		"controls_failed":     strconv.Itoa(failed),
+		"controls_manual":     strconv.Itoa(len(manual)),
+		"controls_skipped":    strconv.Itoa(len(skipped)),
+		"controls_errored":    strconv.Itoa(len(errored)),
 		"complete":            fmt.Sprint(len(errored) == 0),
 		"not_assessed_manual": strings.Join(manual, ","),
 	}

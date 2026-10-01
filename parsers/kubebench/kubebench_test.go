@@ -527,6 +527,7 @@ esac`)
 	if len(resp.Discovery.Findings) != 5 {
 		t.Errorf("%d findings, want 5", len(resp.Discovery.Findings))
 	}
+	// #nosec G304 -- argvFile is a path this test created under t.TempDir().
 	argv, _ := os.ReadFile(argvFile)
 	for _, must := range []string{"--targets policies", "--json", "--version 1.33", "--config-dir " + kubeBenchConfigDir} {
 		if !strings.Contains(string(argv), must) {

@@ -19,12 +19,20 @@ func loadHeaderGolden(t *testing.T) *graphragpb.DiscoveryResult {
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
-	disc, quality, err := parseJSONLines(raw)
+	disc, quality, targetErrs, err := parseJSONLines(raw)
 	if err != nil {
 		t.Fatalf("parseJSONLines: %v", err)
 	}
-	if quality != registry.ParseQualityStructured {
-		t.Fatalf("quality = %v, want structured", quality)
+	// PARTIAL, not STRUCTURED. Line 5 of the fixture is
+	// `https://down.example.com` with `failed:true`, there on purpose so the
+	// suite covers an unreachable host. A run that could not reach a target did
+	// not fully observe its input, so STRUCTURED would be the wrong claim
+	// (gibson-executor#89).
+	if quality != registry.ParseQualityPartial {
+		t.Fatalf("quality = %v, want partial: the fixture holds one failed probe", quality)
+	}
+	if len(targetErrs) != 1 || !strings.Contains(targetErrs[0], "down.example.com") {
+		t.Fatalf("per-target errors = %v, want one naming down.example.com", targetErrs)
 	}
 	return disc
 }

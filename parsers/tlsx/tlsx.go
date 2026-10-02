@@ -21,7 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -191,9 +193,18 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 		return resp, fmt.Errorf("tlsx exec: %w", runErr)
 	}
 
-	disc, quality, parseErr := parseJSONLines(stdout.Bytes(), time.Now())
+	disc, quality, targetErrs, parseErr := parseJSONLines(stdout.Bytes(), time.Now())
 	resp.Discovery = disc
 	resp.ParseQuality = quality
+	// The per-target reasons go on Stderr, the one channel the runner forwards
+	// to the caller (withStderrTail). They are labelled so they are not read as
+	// tlsx's own stderr.
+	if len(targetErrs) > 0 {
+		resp.Stderr = append(resp.Stderr, []byte("\ntlsx: "+strconv.Itoa(len(targetErrs))+" probe(s) did not complete:\n")...)
+		for _, e := range targetErrs {
+			resp.Stderr = append(resp.Stderr, []byte("  tlsx: "+e+"\n")...)
+		}
+	}
 	return resp, parseErr
 }
 
@@ -320,10 +331,19 @@ func cipherFindings(disc *graphragpb.DiscoveryResult, r *response) {
 	}
 }
 
-func parseJSONLines(raw []byte, now time.Time) (*graphragpb.DiscoveryResult, registry.ParseQuality, error) {
+// parseJSONLines converts tlsx's -json output to a DiscoveryResult.
+//
+// Skipping a failed probe is right and was already here. What was missing is
+// the other half: `response.Error` was decoded and never used, and a run where
+// every probe failed returned STRUCTURED with zero findings — byte-identical to
+// "every host was reached and its TLS is fine". The reason tlsx gave is now
+// returned to the caller, and a run with any failed probe is PARTIAL
+// (gibson-executor#89).
+func parseJSONLines(raw []byte, now time.Time) (*graphragpb.DiscoveryResult, registry.ParseQuality, []string, error) {
 	disc := &graphragpb.DiscoveryResult{}
 	lines := strings.Split(string(raw), "\n")
 	parsed := 0
+	var targetErrs []string
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || line[0] != '{' {
@@ -331,13 +351,15 @@ func parseJSONLines(raw []byte, now time.Time) (*graphragpb.DiscoveryResult, reg
 		}
 		var r response
 		if err := json.Unmarshal([]byte(line), &r); err != nil {
-			return disc, registry.ParseQualityPartial, fmt.Errorf("line %d: %w", i+1, err)
+			return disc, registry.ParseQualityPartial, targetErrs, fmt.Errorf("line %d: %w", i+1, err)
 		}
 		parsed++
 		// A failed probe is not a finding about the service's TLS; it is
 		// the absence of an observation. Reporting it as a weakness would
-		// turn every unreachable host into a vulnerability.
+		// turn every unreachable host into a vulnerability. It is still
+		// reported as a gap, so the caller can tell it from a clean probe.
 		if !r.ProbeStatus {
+			targetErrs = append(targetErrs, targetError(&r))
 			continue
 		}
 		certificateFindings(disc, &r, now)
@@ -345,7 +367,26 @@ func parseJSONLines(raw []byte, now time.Time) (*graphragpb.DiscoveryResult, reg
 		cipherFindings(disc, &r)
 	}
 	if parsed == 0 {
-		return disc, registry.ParseQualityPartial, nil
+		return disc, registry.ParseQualityPartial, targetErrs, nil
 	}
-	return disc, registry.ParseQualityStructured, nil
+	if len(targetErrs) > 0 {
+		return disc, registry.ParseQualityPartial, targetErrs, nil
+	}
+	return disc, registry.ParseQualityStructured, targetErrs, nil
+}
+
+// targetError names the probed host and the reason tlsx gave. tlsx does not
+// always fill `error`, so the fallback says that rather than printing nothing.
+func targetError(r *response) string {
+	who := r.Host
+	if r.Port != "" {
+		who = net.JoinHostPort(r.Host, r.Port)
+	}
+	if who == "" {
+		who = r.IP
+	}
+	if r.Error == "" {
+		return who + ": probe failed, tlsx gave no reason"
+	}
+	return fmt.Sprintf("%s: %s", who, r.Error)
 }

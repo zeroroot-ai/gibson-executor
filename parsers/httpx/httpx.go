@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
@@ -142,9 +143,18 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 	if err := stdout.Err(); err != nil {
 		return resp, fmt.Errorf("httpx stdout: %w", err)
 	}
-	disc, quality, parseErr := parseJSONLines(stdout.Bytes())
+	disc, quality, targetErrs, parseErr := parseJSONLines(stdout.Bytes())
 	resp.Discovery = disc
 	resp.ParseQuality = quality
+	// The per-target reasons go on Stderr, the one channel the runner forwards
+	// to the caller (withStderrTail). They are labelled so they are not read as
+	// httpx's own stderr.
+	if len(targetErrs) > 0 {
+		resp.Stderr = append(resp.Stderr, []byte("\nhttpx: "+strconv.Itoa(len(targetErrs))+" target(s) did not answer:\n")...)
+		for _, e := range targetErrs {
+			resp.Stderr = append(resp.Stderr, []byte("  httpx: "+e+"\n")...)
+		}
+	}
 	if runErr != nil && len(stdout.Bytes()) == 0 {
 		resp.ParseQuality = registry.ParseQualityFailed
 		return resp, fmt.Errorf("httpx exec: %w", runErr)
@@ -158,11 +168,24 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 // parseJSONLines converts httpx's -json output to a DiscoveryResult. Each
 // line is one probe result. Empty input → empty DiscoveryResult + quality
 // RAW (nothing to structure).
-func parseJSONLines(raw []byte) (*graphragpb.DiscoveryResult, registry.ParseQuality, error) {
+//
+// A probe httpx could not complete carries `"failed": true` and usually an
+// `error` string. Both were decoded and neither was used, so a target that
+// never answered still produced a Service, an Endpoint and any Technology
+// lines: the graph recorded a service that does not exist, and the reason
+// httpx gave was discarded. Such a result now produces no nodes, its reason is
+// returned to the caller, and a run with any failed target is PARTIAL rather
+// than STRUCTURED — a caller reading STRUCTURED treats the gap as "scanned,
+// nothing to report" (gibson-executor#89).
+//
+// The guard keys on the failure, not on the error text, because httpx does not
+// always fill `error`.
+func parseJSONLines(raw []byte) (*graphragpb.DiscoveryResult, registry.ParseQuality, []string, error) {
 	disc := &graphragpb.DiscoveryResult{}
 	sc := bufio.NewScanner(bytes.NewReader(raw))
 	sc.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	lines := 0
+	var targetErrs []string
 	for sc.Scan() {
 		line := bytes.TrimSpace(sc.Bytes())
 		if len(line) == 0 || line[0] != '{' {
@@ -170,19 +193,39 @@ func parseJSONLines(raw []byte) (*graphragpb.DiscoveryResult, registry.ParseQual
 		}
 		var r httpxResult
 		if err := json.Unmarshal(line, &r); err != nil {
-			return disc, registry.ParseQualityPartial, fmt.Errorf("line %d: %w", lines+1, err)
+			return disc, registry.ParseQualityPartial, targetErrs, fmt.Errorf("line %d: %w", lines+1, err)
 		}
 		lines++
+		if r.Failed {
+			targetErrs = append(targetErrs, targetError(r))
+			continue
+		}
 		appendProbe(disc, r)
 		securityHeaderFindings(disc, r)
 	}
 	if err := sc.Err(); err != nil {
-		return disc, registry.ParseQualityPartial, err
+		return disc, registry.ParseQualityPartial, targetErrs, fmt.Errorf("scan httpx output: %w", err)
 	}
 	if lines == 0 {
-		return disc, registry.ParseQualityRaw, nil
+		return disc, registry.ParseQualityRaw, targetErrs, nil
 	}
-	return disc, registry.ParseQualityStructured, nil
+	if len(targetErrs) > 0 {
+		return disc, registry.ParseQualityPartial, targetErrs, nil
+	}
+	return disc, registry.ParseQualityStructured, targetErrs, nil
+}
+
+// targetError names the target and the reason httpx gave. httpx does not always
+// fill `error`, so the fallback says that rather than printing an empty reason.
+func targetError(r httpxResult) string {
+	who := r.URL
+	if who == "" {
+		who = r.Host
+	}
+	if r.Error == "" {
+		return who + ": probe failed, httpx gave no reason"
+	}
+	return fmt.Sprintf("%s: %s", who, r.Error)
 }
 
 func appendProbe(disc *graphragpb.DiscoveryResult, r httpxResult) {

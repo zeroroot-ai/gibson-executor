@@ -16,7 +16,7 @@ func TestParseJSONLines_Simple(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
-	disc, quality, err := parseJSONLines(raw)
+	disc, quality, _, err := parseJSONLines(raw)
 	if err != nil {
 		t.Fatalf("parseJSONLines: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestParseJSONLines_Simple(t *testing.T) {
 }
 
 func TestParseJSONLines_EmptyInput(t *testing.T) {
-	_, quality, err := parseJSONLines(nil)
+	_, quality, _, err := parseJSONLines(nil)
 	if err != nil {
 		t.Fatalf("empty input returned error: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestParseJSONLines_MalformedLine(t *testing.T) {
 	// deliberate so stray log output doesn't poison the whole scan. A
 	// JSON-looking-but-malformed line must surface as PARTIAL + error.
 	raw := []byte(`{"url":"http://a","status_code":200}` + "\n{\"url\": truncated")
-	_, quality, err := parseJSONLines(raw)
+	_, quality, _, err := parseJSONLines(raw)
 	if err == nil {
 		t.Fatal("expected error on JSON-but-malformed line")
 	}

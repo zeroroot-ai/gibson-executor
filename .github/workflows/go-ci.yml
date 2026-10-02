@@ -240,6 +240,42 @@ jobs:
       - name: no-legacy-auth guard unit tests
         run: bash scripts/__tests__/check-no-legacy-auth.test.sh
 
+  # The trivy k8s report shape, read from the pinned trivy's own source.
+  #
+  # parsers/trivyk8s reads `trivy k8s --format json`, and no PR runner can
+  # reach a cluster to record that output (gibson#485), so the cluster wrapper
+  # in its fixture is assembled. An assembled fixture goes stale silently: a
+  # trivy bump that renames a field leaves the tests green and the real tool
+  # returning an empty, clean-looking result. This reads the field names out of
+  # the pinned module and fails when they no longer match.
+  #
+  # Its own --selftest runs here too, because a guard that cannot fail is the
+  # recurring defect class in this org.
+  trivy-k8s-shape-guard:
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    name: trivy-k8s-shape-guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Only trivy's own module, not its dependency tree: the guard needs the
+      # one source file that declares the report shape.
+      - name: Download the pinned trivy module
+        working-directory: tools/trivy
+        run: go mod download github.com/aquasecurity/trivy
+
+      - name: trivy k8s report shape guard
+        run: bash scripts/check-trivy-k8s-report-shape.sh
+
+      - name: trivy k8s report shape guard selftest
+        run: bash scripts/check-trivy-k8s-report-shape.sh --selftest
+
   # ---- moved in from policy-guards.yml (#341) ----
   # `needs:` cannot cross workflow files, so every gate that ci-required must
   # cover has to live here. The job id and name are unchanged, so this still
@@ -314,6 +350,7 @@ jobs:
       - binary-smoke-test
       - tool-smoke
       - no-legacy-auth-guard
+      - trivy-k8s-shape-guard
       - policy-guards
       - architectural-doc-coverage
       - ci-required-selftest

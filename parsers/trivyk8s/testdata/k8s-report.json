@@ -1,0 +1,449 @@
+{
+  "ClusterName": "goat",
+  "Resources": [
+    {
+      "Kind": "Deployment",
+      "Name": "goat-api",
+      "Namespace": "goat",
+      "Results": [
+        {
+          "Class": "config",
+          "MisconfSummary": {
+            "Failures": 12,
+            "Successes": 0
+          },
+          "Misconfigurations": [
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "A program inside the container can elevate its own privileges and run as root, which might give the program control over the container and node.",
+              "ID": "KSV-0001",
+              "Message": "Container 'api' of Deployment 'goat-api' should set 'securityContext.allowPrivilegeEscalation' to false",
+              "Namespace": "builtin.kubernetes.KSV001",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0001",
+              "Query": "data.builtin.kubernetes.KSV001.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted",
+                "https://avd.aquasec.com/misconfig/ksv-0001"
+              ],
+              "Resolution": "Set 'set containers[].securityContext.allowPrivilegeEscalation' to 'false'.",
+              "Severity": "MEDIUM",
+              "Status": "FAIL",
+              "Title": "Can elevate its own privileges",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "SYS_ADMIN gives the processes running inside the container privileges that are equivalent to root.",
+              "ID": "KSV-0005",
+              "Message": "Container 'api' of Deployment 'goat-api' should not include 'SYS_ADMIN' in 'securityContext.capabilities.add'",
+              "Namespace": "builtin.kubernetes.KSV005",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0005",
+              "Query": "data.builtin.kubernetes.KSV005.deny",
+              "References": [
+                "https://kubesec.io/basics/containers-securitycontext-capabilities-add-index-sys-admin/",
+                "https://avd.aquasec.com/misconfig/ksv-0005"
+              ],
+              "Resolution": "Remove the SYS_ADMIN capability from 'containers[].securityContext.capabilities.add'.",
+              "Severity": "HIGH",
+              "Status": "FAIL",
+              "Title": "SYS_ADMIN capability added",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 32,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 6
+              },
+              "Description": "Sharing the host\u2019s IPC namespace allows container processes to communicate with processes on the host.",
+              "ID": "KSV-0008",
+              "Message": "Deployment 'goat-api' should not set 'spec.template.spec.hostIPC' to true",
+              "Namespace": "builtin.kubernetes.KSV008",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0008",
+              "Query": "data.builtin.kubernetes.KSV008.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+                "https://avd.aquasec.com/misconfig/ksv-0008"
+              ],
+              "Resolution": "Do not set 'spec.template.spec.hostIPC' to true.",
+              "Severity": "HIGH",
+              "Status": "FAIL",
+              "Title": "Access to host IPC namespace",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 32,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 6
+              },
+              "Description": "Sharing the host\u2019s network namespace permits processes in the pod to communicate with processes bound to the host\u2019s loopback adapter.",
+              "ID": "KSV-0009",
+              "Message": "Deployment 'goat-api' should not set 'spec.template.spec.hostNetwork' to true",
+              "Namespace": "builtin.kubernetes.KSV009",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0009",
+              "Query": "data.builtin.kubernetes.KSV009.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+                "https://avd.aquasec.com/misconfig/ksv-0009"
+              ],
+              "Resolution": "Do not set 'spec.template.spec.hostNetwork' to true.",
+              "Severity": "HIGH",
+              "Status": "FAIL",
+              "Title": "Access to host network",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 32,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 6
+              },
+              "Description": "Sharing the host\u2019s PID namespace allows visibility on host processes, potentially leaking information such as environment variables and configuration.",
+              "ID": "KSV-0010",
+              "Message": "Deployment 'goat-api' should not set 'spec.template.spec.hostPID' to true",
+              "Namespace": "builtin.kubernetes.KSV010",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0010",
+              "Query": "data.builtin.kubernetes.KSV010.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+                "https://avd.aquasec.com/misconfig/ksv-0010"
+              ],
+              "Resolution": "Do not set 'spec.template.spec.hostPID' to true.",
+              "Severity": "HIGH",
+              "Status": "FAIL",
+              "Title": "Access to host PID",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "Force the running image to run as a non-root user to ensure least privileges.",
+              "ID": "KSV-0012",
+              "Message": "Container 'api' of Deployment 'goat-api' should set 'securityContext.runAsNonRoot' to true",
+              "Namespace": "builtin.kubernetes.KSV012",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0012",
+              "Query": "data.builtin.kubernetes.KSV012.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted",
+                "https://avd.aquasec.com/misconfig/ksv-0012"
+              ],
+              "Resolution": "Set 'containers[].securityContext.runAsNonRoot' to true.",
+              "Severity": "MEDIUM",
+              "Status": "FAIL",
+              "Title": "Runs as root user",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "Privileged containers share namespaces with the host system and do not offer any security. They should be used exclusively for system containers that require high privileges.",
+              "ID": "KSV-0017",
+              "Message": "Container 'api' of Deployment 'goat-api' should set 'securityContext.privileged' to false",
+              "Namespace": "builtin.kubernetes.KSV017",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0017",
+              "Query": "data.builtin.kubernetes.KSV017.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+                "https://avd.aquasec.com/misconfig/ksv-0017"
+              ],
+              "Resolution": "Change 'containers[].securityContext.privileged' to 'false'.",
+              "Severity": "HIGH",
+              "Status": "FAIL",
+              "Title": "Privileged",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "According to pod security standard 'Capabilities', capabilities beyond the default set must not be added.",
+              "ID": "KSV-0022",
+              "Message": "Container 'api' of Deployment 'goat-api' should not set 'securityContext.capabilities.add'",
+              "Namespace": "builtin.kubernetes.KSV022",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0022",
+              "Query": "data.builtin.kubernetes.KSV022.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+                "https://avd.aquasec.com/misconfig/ksv-0022"
+              ],
+              "Resolution": "Do not set spec.containers[*].securityContext.capabilities.add and spec.initContainers[*].securityContext.capabilities.add.",
+              "Severity": "MEDIUM",
+              "Status": "FAIL",
+              "Title": "Specific capabilities added",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 32,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 6
+              },
+              "Description": "According to pod security standard 'HostPath Volumes', HostPath volumes must be forbidden.",
+              "ID": "KSV-0023",
+              "Message": "Deployment 'goat-api' should not set 'spec.template.volumes.hostPath'",
+              "Namespace": "builtin.kubernetes.KSV023",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0023",
+              "Query": "data.builtin.kubernetes.KSV023.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+                "https://avd.aquasec.com/misconfig/ksv-0023"
+              ],
+              "Resolution": "Do not set 'spec.volumes[*].hostPath'.",
+              "Severity": "MEDIUM",
+              "Status": "FAIL",
+              "Title": "hostPath volumes mounted",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 32,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 13
+              },
+              "Description": "Security context controls the allocation of security parameters for the pod/container/volume, ensuring the appropriate level of protection. Relying on default security context may expose vulnerabilities to potential attacks that rely on privileged access.",
+              "ID": "KSV-0118",
+              "Message": "deployment goat-api in goat namespace is using the default security context, which allows root privileges",
+              "Namespace": "builtin.kubernetes.KSV118",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0118",
+              "Query": "data.builtin.kubernetes.KSV118.deny",
+              "References": [
+                "https://kubernetes.io/docs/tasks/configure-pod-container/security-context/",
+                "https://avd.aquasec.com/misconfig/ksv-0118"
+              ],
+              "Resolution": "To enhance security, it is strongly recommended not to rely on the default security context. Instead, it is advisable to explicitly define the required security parameters (such as runAsNonRoot, capabilities, readOnlyRootFilesystem, etc.) within the security context.",
+              "Severity": "HIGH",
+              "Status": "FAIL",
+              "Title": "Default security context configured",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "Provider": "Kubernetes",
+                "Service": "general"
+              },
+              "Description": "The NET_RAW capability grants attackers the ability to eavesdrop on network traffic or generate IP traffic with falsified source addresses, posing serious security risks.",
+              "ID": "KSV-0119",
+              "Message": "container api of deployment goat-api in goat namespace should not include 'NET_RAW' in securityContext.capabilities.add",
+              "Namespace": "builtin.kubernetes.KSV119",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0119",
+              "Query": "data.builtin.kubernetes.KSV119.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/",
+                "https://avd.aquasec.com/misconfig/ksv-0119"
+              ],
+              "Resolution": "To mitigate potential security risks, it is strongly recommended to remove the NET_RAW capability from 'containers[].securityContext.capabilities.add'. It is advisable to follow the practice of dropping all capabilities and only adding the necessary ones.",
+              "Severity": "HIGH",
+              "Status": "FAIL",
+              "Title": "NET_RAW capability added",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 32,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 6
+              },
+              "Description": "HostPath present many security risks and as a security practice it is better to avoid critical host paths mounts.",
+              "ID": "KSV-0121",
+              "Message": "deployment goat-api in goat namespace shouldn't have volumes set to {\"/\"}",
+              "Namespace": "builtin.kubernetes.KSV121",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0121",
+              "Query": "data.builtin.kubernetes.KSV121.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted",
+                "https://avd.aquasec.com/misconfig/ksv-0121"
+              ],
+              "Resolution": "Do not Set 'spec.volumes[*].hostPath.path' to any of the disallowed volumes.",
+              "Severity": "HIGH",
+              "Status": "FAIL",
+              "Title": "Kubernetes resource with disallowed volumes mounted",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "A program inside the container can elevate its own privileges and run as root, which might give the program control over the container and node.",
+              "ID": "KSV-0030",
+              "Message": "Pod goat-api sets a seccomp profile",
+              "Namespace": "builtin.kubernetes.KSV001",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0001",
+              "Query": "data.builtin.kubernetes.KSV001.deny",
+              "References": [
+                "https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted",
+                "https://avd.aquasec.com/misconfig/ksv-0001"
+              ],
+              "Resolution": "Set 'set containers[].securityContext.allowPrivilegeEscalation' to 'false'.",
+              "Severity": "LOW",
+              "Status": "PASS",
+              "Title": "Runtime/Default Seccomp profile not set",
+              "Type": "Kubernetes Security Check"
+            }
+          ],
+          "Target": "Deployment/goat-api",
+          "Type": "kubernetes"
+        }
+      ]
+    },
+    {
+      "Kind": "Deployment",
+      "Name": "goat-worker",
+      "Namespace": "goat",
+      "Results": [
+        {
+          "Class": "config",
+          "MisconfSummary": {
+            "Failures": 4,
+            "Successes": 0
+          },
+          "Misconfigurations": [
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "Enforcing CPU limits prevents DoS via resource exhaustion.",
+              "ID": "KSV-0011",
+              "Message": "Container 'api' of Deployment 'goat-api' should set 'resources.limits.cpu'",
+              "Namespace": "builtin.kubernetes.KSV011",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0011",
+              "Query": "data.builtin.kubernetes.KSV011.deny",
+              "References": [
+                "https://cloud.google.com/blog/products/containers-kubernetes/kubernetes-best-practices-resource-requests-and-limits",
+                "https://avd.aquasec.com/misconfig/ksv-0011"
+              ],
+              "Resolution": "Set a limit value under 'containers[].resources.limits.cpu'.",
+              "Severity": "LOW",
+              "Status": "FAIL",
+              "Title": "CPU not limited",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "When containers have resource requests specified, the scheduler can make better decisions about which nodes to place pods on, and how to deal with resource contention.",
+              "ID": "KSV-0015",
+              "Message": "Container 'api' of Deployment 'goat-api' should set 'resources.requests.cpu'",
+              "Namespace": "builtin.kubernetes.KSV015",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0015",
+              "Query": "data.builtin.kubernetes.KSV015.deny",
+              "References": [
+                "https://cloud.google.com/blog/products/containers-kubernetes/kubernetes-best-practices-resource-requests-and-limits",
+                "https://avd.aquasec.com/misconfig/ksv-0015"
+              ],
+              "Resolution": "Set 'containers[].resources.requests.cpu'.",
+              "Severity": "LOW",
+              "Status": "FAIL",
+              "Title": "CPU requests not specified",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "When containers have memory requests specified, the scheduler can make better decisions about which nodes to place pods on, and how to deal with resource contention.",
+              "ID": "KSV-0016",
+              "Message": "Container 'api' of Deployment 'goat-api' should set 'resources.requests.memory'",
+              "Namespace": "builtin.kubernetes.KSV016",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0016",
+              "Query": "data.builtin.kubernetes.KSV016.deny",
+              "References": [
+                "https://kubesec.io/basics/containers-resources-limits-memory/",
+                "https://avd.aquasec.com/misconfig/ksv-0016"
+              ],
+              "Resolution": "Set 'containers[].resources.requests.memory'.",
+              "Severity": "LOW",
+              "Status": "FAIL",
+              "Title": "Memory requests not specified",
+              "Type": "Kubernetes Security Check"
+            },
+            {
+              "CauseMetadata": {
+                "EndLine": 29,
+                "Provider": "Kubernetes",
+                "Service": "general",
+                "StartLine": 19
+              },
+              "Description": "Enforcing memory limits prevents DoS via resource exhaustion.",
+              "ID": "KSV-0018",
+              "Message": "Container 'api' of Deployment 'goat-api' should set 'resources.limits.memory'",
+              "Namespace": "builtin.kubernetes.KSV018",
+              "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0018",
+              "Query": "data.builtin.kubernetes.KSV018.deny",
+              "References": [
+                "https://kubesec.io/basics/containers-resources-limits-memory/",
+                "https://avd.aquasec.com/misconfig/ksv-0018"
+              ],
+              "Resolution": "Set a limit value under 'containers[].resources.limits.memory'.",
+              "Severity": "LOW",
+              "Status": "FAIL",
+              "Title": "Memory not limited",
+              "Type": "Kubernetes Security Check"
+            }
+          ],
+          "Target": "Deployment/goat-worker",
+          "Type": "kubernetes"
+        }
+      ]
+    },
+    {
+      "Error": "failed to get resource: roles.rbac.authorization.k8s.io \"extension-apiserver-authentication-reader\" is forbidden: User \"system:serviceaccount:goat:scanner\" cannot get resource \"roles\" in API group \"rbac.authorization.k8s.io\" in the namespace \"kube-system\"",
+      "Kind": "Role",
+      "Name": "extension-apiserver-authentication-reader",
+      "Namespace": "kube-system"
+    },
+    {
+      "Kind": "ConfigMap",
+      "Name": "goat-config",
+      "Namespace": "goat",
+      "Results": [
+        {
+          "Class": "config",
+          "Target": "ConfigMap/goat-config",
+          "Type": "kubernetes"
+        }
+      ]
+    }
+  ],
+  "SchemaVersion": 2
+}

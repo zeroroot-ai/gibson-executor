@@ -38,3 +38,26 @@ needs no edit here.
 
 `GOEXPERIMENT=jsonv2` is what upstream sets in its own release build. trivy
 imports `encoding/json/v2` and does not compile without it.
+
+## Two parsers read this pin
+
+The `trivy` binary this module pins is exec'd by two parsers, and a bump moves
+both:
+
+| Parser | Subcommand | What it reads |
+|---|---|---|
+| `parsers/trivy` | `trivy image` | package vulnerabilities |
+| `parsers/trivyk8s` | `trivy k8s` | workload misconfiguration checks |
+
+`parsers/trivyk8s` also reads the **shape** of the k8s report, which is trivy's
+own `pkg/k8s/report.Report`, not a stable documented format. No PR runner can
+reach a cluster to record that output (gibson#485), so the cluster wrapper in
+its golden fixture is assembled from that struct rather than recorded.
+
+So step 4 of the bump procedure above has one more part:
+
+6. Run `make check-trivy-k8s-shape`. It reads the field names out of the new
+   version's `pkg/k8s/report/report.go` and fails if the parser or the fixture
+   names one the new version does not declare. The same guard runs in CI as
+   `trivy-k8s-shape-guard`. A rename there would otherwise leave every test
+   green while the real tool returned an empty, clean-looking result.

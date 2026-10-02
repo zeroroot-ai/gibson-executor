@@ -25,6 +25,30 @@ var nonToolPackages = map[string]bool{
 	"kubectl": true,
 }
 
+// toolBinaries names the binary a parser execs when it is NOT the parser's own
+// tool name. The guard below checks that binary is installed instead.
+//
+// A parser may wrap a subcommand of a binary another parser already brings in.
+// trivy-k8s is `trivy k8s`: a different tool to a mission author, with its own
+// target, its own severity source and its own result shape, but the same
+// executable. Without this map the guard demands a /usr/local/bin/trivy-k8s
+// that should not exist, and the only ways to satisfy it are a shim or an
+// exemption, both of which hide the real question — is the binary installed.
+//
+// This is not an exemption list. Every entry still has to name an executable
+// the Dockerfile installs, so a parser whose binary is missing still fails.
+var toolBinaries = map[string]string{
+	"trivy-k8s": "trivy",
+}
+
+// binaryFor returns the executable a catalogued tool runs.
+func binaryFor(tool string) string {
+	if bin, ok := toolBinaries[tool]; ok {
+		return bin
+	}
+	return tool
+}
+
 // TestCatalogAndImageAgree is the anti-drift guard for #352, in both
 // directions.
 //
@@ -71,17 +95,25 @@ func TestCatalogAndImageAgree(t *testing.T) {
 	}
 
 	for _, name := range sortedKeys(catalogued) {
-		if !installed[name] {
-			t.Errorf("parser %q is in the catalog but the Dockerfile installs no such binary.\n"+
+		bin := binaryFor(name)
+		if !installed[bin] {
+			t.Errorf("parser %q is in the catalog but the Dockerfile installs no %q binary.\n"+
 				"The daemon will advertise it, a mission will dispatch it, and the run will fail with\n"+
 				"  exec: %q: executable file not found in $PATH\n"+
 				"Add the apt/go-install line to Dockerfile, or remove the parser.",
-				name, name)
+				name, bin, bin)
 		}
 	}
 
+	// A binary that a catalogued parser execs under another name is catalogued
+	// through that parser.
+	execd := map[string]bool{}
+	for tool := range catalogued {
+		execd[binaryFor(tool)] = true
+	}
+
 	for _, name := range sortedKeys(installed) {
-		if nonToolPackages[name] {
+		if nonToolPackages[name] || execd[name] {
 			continue
 		}
 		if !catalogued[name] {

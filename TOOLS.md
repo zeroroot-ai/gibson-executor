@@ -32,6 +32,17 @@ most take <200 LOC.
   the Kubernetes API. Needs a kubeconfig that the daemon supplies
   (gibson#485): until then it fails with an error that names the missing
   field. See `tools/kubebench/README.md`.
+- 🟡 trivy-k8s — ClusterAudit + one Workload per resource read + one Finding per
+  failed workload check, at the severity trivy reports. Covers privileged
+  containers, host namespaces, hostPath mounts, added capabilities and missing
+  security contexts, which is where a cluster's real problems are: kube-bench's
+  `policies` target is CIS section 5, almost all of it unscored, so its output
+  is broad and nearly all `low`. Execs the same `trivy` binary as the image
+  scanner, limited to `--scanners misconfig` so it does not duplicate it. Needs
+  the same kubeconfig as kube-bench and refuses the same way without it.
+  - This replaced kubeaudit, which gibson-executor#88 originally asked for.
+    `Shopify/kubeaudit` is archived: last release August 2024, no commits since.
+    Pinning it would import a dependency tree that can never be patched.
 
 ## Network discovery / port scanning
 

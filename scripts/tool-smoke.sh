@@ -86,11 +86,15 @@ TIMEOUT_MS=180000
 #
 # A count expression that starts with `ERROR:` inverts the case: the run must
 # FAIL, and the runner's error message must contain the text after the prefix.
-# kube-bench uses it. It needs a kubeconfig the daemon supplies from a tenant
-# secret (gibson#485), which this script cannot supply, so what it proves in
-# the image is the refusal: the binary, the runner, the registry entry and the
-# message that names the missing field. It does NOT prove a scan. That waits
-# on #485 and a cluster, and the exit test on main owns it.
+# kube-bench and trivy-k8s use it. Both need a kubeconfig the daemon supplies
+# from a tenant secret (gibson#485), which this script cannot supply, so what
+# they prove in the image is the refusal: the binary, the runner, the registry
+# entry and the message that names the missing field. Neither proves a scan.
+# That waits on #485 and a cluster, and the exit test on main owns it.
+#
+# trivy-k8s execs the same `trivy` binary as the trivy case above, so its own
+# case proves the registry entry and the refusal, while the trivy case proves
+# the binary runs.
 #
 # Placeholders @IP@ @ALIAS@ @PORT@ @DNS@ @DOMAIN@ @SCANIMAGE@ @TLSHOST@
 # @HERE@ are
@@ -106,6 +110,7 @@ CASES=(
   'tlsx::{"target":"@TLSHOST@"}::.findings | length::'
   'trivy::{"target":"@SCANIMAGE@"}::[.custom_nodes[]? | select(.node_type=="Package")] | length::'
   'kube-bench::{"target":"smoke-cluster"}::ERROR:kubeconfig::'
+  'trivy-k8s::{"target":"smoke-cluster"}::ERROR:kubeconfig::'
 )
 
 # split_case populates the globals CASE_NAME/CASE_INPUT/CASE_EXPR/CASE_EXTRA

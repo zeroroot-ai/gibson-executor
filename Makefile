@@ -113,8 +113,12 @@ lint-all: $(GOLANGCI_LINT) ## Run golangci-lint across the whole tree (informati
 # (go-ci.yml calls `make lint`), so nothing is lost — this matches gibson
 # (#1268), setec (#162) and sdk (#449). Run `make lint` by hand when you
 # want it.
+.PHONY: check-trivy-k8s-shape
+check-trivy-k8s-shape: ## Fail if the pinned trivy no longer declares the k8s report fields parsers/trivyk8s reads.
+	bash scripts/check-trivy-k8s-report-shape.sh
+
 .PHONY: check
-check: test ## Run the local gate (test only — run 'make lint' separately).
+check: test check-trivy-k8s-shape ## Run the local gate (tests + guards — run 'make lint' separately).
 
 .PHONY: image
 image: ## Build the runner OCI image.

@@ -70,6 +70,7 @@ import (
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/subfinder"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/tlsx"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/trivy"
+	_ "github.com/zeroroot-ai/gibson-executor/parsers/trivyk8s"
 )
 
 const (

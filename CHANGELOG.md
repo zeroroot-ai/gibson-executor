@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.112.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.111.0...v0.112.0) (2026-10-02)
+
+
+### Features
+
+* **tools:** workload misconfiguration findings from trivy k8s ([#99](https://github.com/zeroroot-ai/gibson-executor/issues/99)) ([ff5037d](https://github.com/zeroroot-ai/gibson-executor/commit/ff5037d6710c775fe3df69d3ea310c6ed79c5cb8))
+
+
+### Bug Fixes
+
+* **ci:** move the reusable-go-ci pin past the govulncheck panic ([#96](https://github.com/zeroroot-ai/gibson-executor/issues/96)) ([8218563](https://github.com/zeroroot-ai/gibson-executor/commit/82185631985ec77b5c9af103b77ee2b241b8f1ec))
+* **parsers:** a failed probe became a live service, and the tool's reason was discarded ([#98](https://github.com/zeroroot-ai/gibson-executor/issues/98)) ([57b924d](https://github.com/zeroroot-ai/gibson-executor/commit/57b924dae67b68cf31cd440625efafb180dd6409))
+* **parsers:** a nuclei finding arrived with its proof thrown away ([#101](https://github.com/zeroroot-ai/gibson-executor/issues/101)) ([ce5afe6](https://github.com/zeroroot-ai/gibson-executor/commit/ce5afe6237cef42957e9373571766c15f5e2fcda))
+
 ## [0.111.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.110.3...v0.111.0) (2026-10-01)
 
 

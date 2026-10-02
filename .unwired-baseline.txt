@@ -6,19 +6,20 @@
 # This file only shrinks. Adding an entry means accepting a declaration
 # nothing reads, so put the reason on a # line above it.
 #
-# measured 2026-10-02: 40 of 239 declarations across 34 packages and 59 files
+# measured 2026-10-02: 30 of 238 declarations across 34 packages and 59 files
 
 const registry.ParseQualityUnspecified	# internal/registry/registry.go:48
-field nuclei.nucleiClassification.CvssMetrics	# parsers/nuclei/nuclei.go:87
-field nuclei.nucleiClassification.CweID	# parsers/nuclei/nuclei.go:85
-field nuclei.nucleiEvent.CurlCommand	# parsers/nuclei/nuclei.go:70
-field nuclei.nucleiEvent.ExtractedResults	# parsers/nuclei/nuclei.go:71
-field nuclei.nucleiEvent.Host	# parsers/nuclei/nuclei.go:67
-field nuclei.nucleiEvent.Type	# parsers/nuclei/nuclei.go:69
 field readiness.probeResult.Error	# internal/readiness/readiness.go:27
 field readiness.probeResult.Name	# internal/readiness/readiness.go:25
 field readiness.probeResult.Status	# internal/readiness/readiness.go:26
 field readiness.readyzResponse.Status	# internal/readiness/readiness.go:31
+# CatalogEntry's fields ARE read, by a marshaller unwired cannot see.
+# `gibson-runner --list-tools` does json.NewEncoder(os.Stdout).Encode(
+# registry.Catalog()), and the Gibson daemon's catalog refresher ingests that
+# array to populate ComponentRegistry entries. Every field carries a json tag
+# and reflection reads it, so there is no per-declaration read to find.
+# Deleting any of them would silently drop a column from the daemon's catalog.
+# Verified 2026-10-02 (gibson-executor#89): cmd/gibson-runner/main.go:134.
 field registry.CatalogEntry.DefaultParseQuality	# internal/registry/registry.go:65
 field registry.CatalogEntry.Description	# internal/registry/registry.go:61
 field registry.CatalogEntry.InputSchema	# internal/registry/registry.go:63
@@ -26,12 +27,9 @@ field registry.CatalogEntry.OutputProtoType	# internal/registry/registry.go:64
 field registry.CatalogEntry.Resources	# internal/registry/registry.go:66
 field registry.CatalogEntry.Tags	# internal/registry/registry.go:62
 field registry.CatalogEntry.Version	# internal/registry/registry.go:60
-field registry.ExecuteResponse.ExitCode	# internal/registry/registry.go:37
-field registry.ExecuteResponse.Stdout	# internal/registry/registry.go:38
+# ResourceHint is CatalogEntry.Resources, so the same marshaller reads it.
 field registry.ResourceHint.Memory	# internal/registry/registry.go:74
 field registry.ResourceHint.VCPU	# internal/registry/registry.go:73
-field subfinder.subfinderRecord.Source	# parsers/subfinder/subfinder.go:58
-field tlsx.response.ServerName	# parsers/tlsx/tlsx.go:95
 func policy.PathUnder	# internal/policy/policy.go:360
 func sandbox.LimitReader	# internal/sandbox/sandbox.go:200
 method dnsx.parser.OutputMessage	# parsers/dnsx/dnsx.go:47

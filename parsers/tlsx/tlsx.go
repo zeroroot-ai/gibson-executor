@@ -197,7 +197,7 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 	resp.Discovery = disc
 	resp.ParseQuality = quality
 	// The per-target reasons go on Stderr, the one channel the runner forwards
-	// to the caller (withStderrTail). They are labelled so they are not read as
+	// to the caller (withOutputTail). They are labelled so they are not read as
 	// tlsx's own stderr.
 	if len(targetErrs) > 0 {
 		resp.Stderr = append(resp.Stderr, []byte("\ntlsx: "+strconv.Itoa(len(targetErrs))+" probe(s) did not complete:\n")...)
@@ -269,9 +269,22 @@ func certificateFindings(disc *graphragpb.DiscoveryResult, r *response, now time
 			fmt.Sprintf("The certificate for %q is self-signed, so it proves no identity to a client that does not already trust it.", r.SubjectCN))
 	}
 	if r.MisMatched {
+		// Name what was asked for, not just what came back. `response.ServerName`
+		// is the SNI tlsx sent, and it was decoded and dropped
+		// (gibson-executor#89), so the finding said a certificate "does not
+		// cover the requested host" without ever saying which host that was —
+		// the one value that makes the mismatch checkable.
+		requested := r.ServerName
+		if requested == "" {
+			requested = r.Host
+		}
+		detail := fmt.Sprintf("The certificate presented by %s names %q, which does not cover the requested host.", ep, r.SubjectCN)
+		if requested != "" {
+			detail = fmt.Sprintf("The certificate presented by %s names %q, which does not cover the requested name %q.",
+				ep, r.SubjectCN, requested)
+		}
 		addFinding(disc, ep, "cert-mismatched", "high",
-			"TLS certificate does not match the host",
-			fmt.Sprintf("The certificate presented by %s names %q, which does not cover the requested host.", ep, r.SubjectCN))
+			"TLS certificate does not match the host", detail)
 	}
 	if r.Revoked {
 		addFinding(disc, ep, "cert-revoked", "critical",

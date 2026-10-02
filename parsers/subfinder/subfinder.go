@@ -53,9 +53,18 @@ func (p *parser) Describe() registry.CatalogEntry {
 
 func (p *parser) OutputMessage() proto.Message { return nil }
 
+// subfinderRecord is the subset of subfinder's -json output we consume.
+//
+// `source` is deliberately not decoded. It names the passive data source that
+// produced the subdomain (crtsh, virustotal, ...), which is provenance about
+// the scan rather than a property of the asset. graphrag's Subdomain has four
+// fields and none of them is provenance, and the alternatives are worse: a
+// CustomNode would put scan metadata in the asset graph, and Evidence is keyed
+// by finding id while a discovered subdomain is not a finding. It was decoded
+// and dropped before (gibson-executor#89); not decoding it is the honest form
+// of the same state, and the typed home is tracked separately.
 type subfinderRecord struct {
-	Host   string `json:"host"`
-	Source string `json:"source"`
+	Host string `json:"host"`
 }
 
 // buildArgs composes the subfinder argv. The only caller-controlled slot

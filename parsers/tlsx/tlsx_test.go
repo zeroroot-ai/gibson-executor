@@ -175,6 +175,48 @@ func TestParse_FindingIDsAreDeterministic(t *testing.T) {
 	}
 }
 
+// TestParse_MismatchNamesTheRequestedName is gibson-executor#89.
+//
+// `response.ServerName` is the SNI tlsx sent. It was decoded and dropped, so
+// the mismatch finding said a certificate "does not cover the requested host"
+// without naming that host — the one value that lets a reader check the claim
+// or tell a misrouted vhost from a genuinely wrong certificate.
+func TestParse_MismatchNamesTheRequestedName(t *testing.T) {
+	got := findingsFor(loadGolden(t), "mismatched.example.com:443")
+	f, ok := got["cert-mismatched"]
+	if !ok {
+		t.Fatalf("no cert-mismatched finding; got %v", keys(got))
+	}
+	desc := f.GetDescription()
+	if !strings.Contains(desc, `"www.mismatched.example.com"`) {
+		t.Errorf("description does not name the requested SNI: %q", desc)
+	}
+	if !strings.Contains(desc, `"other.example.com"`) {
+		t.Errorf("description does not name the presented subject: %q", desc)
+	}
+}
+
+// TestParse_MismatchFallsBackToTheHostWhenNoSNI covers tlsx probing a bare IP
+// or a host it sent no SNI for. Naming nothing was the old behaviour; naming
+// the host is strictly better than naming neither.
+func TestParse_MismatchFallsBackToTheHostWhenNoSNI(t *testing.T) {
+	const line = `{"host":"nosni.example.com","ip":"10.0.0.9","port":"443","probe_status":true,` +
+		`"tls_version":"tls13","mismatched":true,"not_after":"2030-01-01T00:00:00Z",` +
+		`"subject_cn":"other.example.com","issuer_cn":"Example CA"}`
+	disc, _, _, err := parseJSONLines([]byte(line), fixedNow)
+	if err != nil {
+		t.Fatalf("parseJSONLines: %v", err)
+	}
+	got := findingsFor(disc, "nosni.example.com:443")
+	f, ok := got["cert-mismatched"]
+	if !ok {
+		t.Fatalf("no cert-mismatched finding; got %v", keys(got))
+	}
+	if !strings.Contains(f.GetDescription(), `"nosni.example.com"`) {
+		t.Errorf("description names neither an SNI nor the host: %q", f.GetDescription())
+	}
+}
+
 func keys(m map[string]*graphragpb.Finding) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

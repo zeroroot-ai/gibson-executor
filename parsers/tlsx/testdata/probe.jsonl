@@ -3,3 +3,4 @@
 {"host":"selfsigned.example.com","ip":"10.0.0.6","port":"8443","probe_status":true,"tls_version":"tls12","cipher":"TLS_ECDHE_RSA_WITH_RC4_128_SHA","self_signed":true,"untrusted":true,"not_after":"2030-01-01T00:00:00Z","subject_cn":"selfsigned.example.com","issuer_cn":"selfsigned.example.com"}
 {"host":"unreachable.example.com","port":"443","probe_status":false,"error":"connection refused"}
 {"host":"healthy.example.com","ip":"10.0.0.7","port":"443","probe_status":true,"tls_version":"tls13","cipher":"TLS_AES_256_GCM_SHA384","not_after":"2030-01-01T00:00:00Z","subject_cn":"healthy.example.com","issuer_cn":"Example CA"}
+{"host":"mismatched.example.com","ip":"10.0.0.8","port":"443","probe_status":true,"tls_version":"tls13","cipher":"TLS_AES_256_GCM_SHA384","sni":"www.mismatched.example.com","mismatched":true,"not_after":"2030-01-01T00:00:00Z","subject_cn":"other.example.com","issuer_cn":"Example CA"}

@@ -24,12 +24,19 @@ func loadGolden(t *testing.T) *graphragpb.DiscoveryResult {
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
-	disc, quality, err := parseJSONLines(raw, fixedNow)
+	disc, quality, targetErrs, err := parseJSONLines(raw, fixedNow)
 	if err != nil {
 		t.Fatalf("parseJSONLines: %v", err)
 	}
-	if quality != registry.ParseQualityStructured {
-		t.Fatalf("quality = %v, want structured", quality)
+	// PARTIAL, not STRUCTURED. Line 4 of the fixture is
+	// `unreachable.example.com` with `probe_status:false`, there on purpose so
+	// the suite covers a probe that never completed. A run that could not reach
+	// a host did not fully observe its input (gibson-executor#89).
+	if quality != registry.ParseQualityPartial {
+		t.Fatalf("quality = %v, want partial: the fixture holds one failed probe", quality)
+	}
+	if len(targetErrs) != 1 || !strings.Contains(targetErrs[0], "unreachable.example.com") {
+		t.Fatalf("per-target errors = %v, want one naming unreachable.example.com", targetErrs)
 	}
 	return disc
 }

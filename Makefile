@@ -18,6 +18,10 @@ SHELL := /usr/bin/env bash
 BIN_DIR := bin
 IMAGE   ?= ghcr.io/zeroroot-ai/gibson-executor:dev
 
+# ast-checks ships the per-declaration read counter behind #90. Pinned, because
+# a floating version would change the count without a commit.
+UNWIRED_VERSION ?= v0.4.0
+
 .PHONY: help
 help: ## List targets.
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -113,6 +117,14 @@ lint-all: $(GOLANGCI_LINT) ## Run golangci-lint across the whole tree (informati
 # (go-ci.yml calls `make lint`), so nothing is lost — this matches gibson
 # (#1268), setec (#162) and sdk (#449). Run `make lint` by hand when you
 # want it.
+.PHONY: lint-unwired
+lint-unwired: ## Fail if a declaration nothing reads is added (#90). Baseline only shrinks.
+	go run github.com/zeroroot-ai/ast-checks/cmd/unwired@$(UNWIRED_VERSION) -dir . -baseline .unwired-baseline.txt
+
+.PHONY: lint-unwired-write
+lint-unwired-write: ## Re-measure #90 and rewrite the baseline.
+	go run github.com/zeroroot-ai/ast-checks/cmd/unwired@$(UNWIRED_VERSION) -dir . -baseline .unwired-baseline.txt -write
+
 .PHONY: check-trivy-k8s-shape
 check-trivy-k8s-shape: ## Fail if the pinned trivy no longer declares the k8s report fields parsers/trivyk8s reads.
 	bash scripts/check-trivy-k8s-report-shape.sh

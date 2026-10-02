@@ -146,6 +146,12 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # #90: the standing tracker for declarations nothing reads. The baseline
+      # only shrinks, so adding one fails here. ast-checks#13 built the scanner;
+      # before it existed the tracker could not be re-measured at all.
+      - name: lint-unwired
+        run: make lint-unwired
+
       - name: Run linter (blocking; new since merge-base)
         # merge_group has no github.base_ref; use the event's own base_sha
         # instead, a commit SHA that needs no ref resolution and is always

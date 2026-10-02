@@ -113,7 +113,7 @@ jobs:
   # ---- fast tier (pull_request): reusable mod-tidy/vet/build/test ----
   fast:
     if: github.event_name == 'pull_request'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@82522c83b5bef5c671e5da4e276238b175f3b2bd # v0.8.0
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@40c67fd77152f2c4924abccbd992dbca065f325b # v0.8.2
     with:
       tier: fast
       skip-lint: true # gibson-executor runs its own pinned golangci-lint below (make lint)
@@ -121,7 +121,7 @@ jobs:
   # ---- heavy tier (merge_group): reusable race + govulncheck ----
   heavy:
     if: github.event_name == 'merge_group'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@82522c83b5bef5c671e5da4e276238b175f3b2bd # v0.8.0
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@40c67fd77152f2c4924abccbd992dbca065f325b # v0.8.2
     with:
       tier: heavy
 

@@ -58,9 +58,14 @@ func (p *parser) Describe() registry.CatalogEntry {
 
 func (p *parser) OutputMessage() proto.Message { return nil }
 
-// nucleiEvent is the subset of nuclei's -jsonl output we consume. nuclei
-// emits many fields; we decode what feeds a Finding and preserve raw output
-// in stdout for operators.
+// nucleiEvent is the subset of nuclei's -jsonl output we consume.
+//
+// Every field here has to reach the emitted DiscoveryResult. Six of them were
+// decoded and dropped (gibson-executor#89): a finding lost its reproduction
+// command, its extracted proof, its CWE, its CVSS vector, the protocol that
+// matched and the host it matched on. Host becomes the Finding's parent; the
+// rest become Evidence nodes, which is how kubebench and trivy-k8s already
+// carry per-finding proof.
 type nucleiEvent struct {
 	TemplateID       string     `json:"template-id"`
 	Info             nucleiInfo `json:"info"`
@@ -182,9 +187,7 @@ func parseJSONLines(raw []byte) (*graphragpb.DiscoveryResult, registry.ParseQual
 			return disc, registry.ParseQualityPartial, fmt.Errorf("line %d: %w", lines+1, err)
 		}
 		lines++
-		if f := toFinding(ev); f != nil {
-			disc.Findings = append(disc.Findings, f)
-		}
+		appendFinding(disc, ev)
 	}
 	if err := sc.Err(); err != nil {
 		return disc, registry.ParseQualityPartial, err
@@ -199,41 +202,100 @@ func parseJSONLines(raw []byte) (*graphragpb.DiscoveryResult, registry.ParseQual
 	return disc, registry.ParseQualityStructured, nil
 }
 
-func toFinding(ev nucleiEvent) *graphragpb.Finding {
+// appendFinding maps one nuclei event to a Finding plus its Evidence nodes.
+//
+// It appends rather than returning a Finding because the proof travels beside
+// the finding, not inside it: graphrag's Finding has eleven fields and none of
+// them holds a reproduction command, an extracted value, a CWE or a CVSS
+// vector. DiscoveryResult.Evidence does, keyed by finding id.
+func appendFinding(disc *graphragpb.DiscoveryResult, ev nucleiEvent) {
 	title := ev.Info.Name
 	if title == "" {
 		title = ev.TemplateID
 	}
 	if title == "" {
-		return nil
+		return
 	}
+	findingID := fmt.Sprintf("finding:%s:%s", ev.TemplateID, ev.MatchedAt)
 	f := &graphragpb.Finding{
+		Id:       proto.String(findingID),
 		Title:    title,
 		Severity: normaliseSeverity(ev.Info.Severity),
 	}
-	findingID := fmt.Sprintf("finding:%s:%s", ev.TemplateID, ev.MatchedAt)
-	f.Id = &findingID
 	if ev.Info.Description != "" {
-		d := ev.Info.Description
-		f.Description = &d
+		f.Description = proto.String(ev.Info.Description)
 	}
 	if ev.Info.Remediation != "" {
-		r := ev.Info.Remediation
-		f.Remediation = &r
+		f.Remediation = proto.String(ev.Info.Remediation)
 	}
 	if ev.Info.Classification.CvssScore > 0 {
 		cs := ev.Info.Classification.CvssScore
 		f.CvssScore = &cs
 	}
 	if len(ev.Info.Classification.CveID) > 0 {
-		cve := strings.Join(ev.Info.Classification.CveID, ",")
-		f.CveIds = &cve
+		f.CveIds = proto.String(strings.Join(ev.Info.Classification.CveID, ","))
 	}
 	if len(ev.Info.Tags) > 0 {
-		cat := strings.Join(ev.Info.Tags, ",")
-		f.Category = &cat
+		f.Category = proto.String(strings.Join(ev.Info.Tags, ","))
 	}
-	return f
+	// The host nuclei matched on is the finding's parent. ParentType is one of
+	// the documented values ("service", "endpoint", "host", "technology"); a
+	// nuclei `host` is the scanned host.
+	if ev.Host != "" {
+		f.ParentId = proto.String(ev.Host)
+		f.ParentType = proto.String("host")
+	}
+	disc.Findings = append(disc.Findings, f)
+	appendEvidence(disc, findingID, ev)
+}
+
+// Evidence type slugs. One per kind of proof, so a graph query can ask for
+// reproduction commands without parsing a blob. The naming follows the
+// convention kubebench and trivy-k8s already set: <tool>-<kind>.
+const (
+	evidenceReproduction = "nuclei-reproduction"
+	evidenceExtracted    = "nuclei-extracted-result"
+	evidenceCWE          = "nuclei-cwe"
+	evidenceCVSSVector   = "nuclei-cvss-vector"
+	evidenceProtocol     = "nuclei-protocol"
+)
+
+// appendEvidence records the proof nuclei supplied for one finding. Each node
+// is emitted only when nuclei actually gave the value, so a template that
+// carries no classification produces no empty nodes.
+//
+// MatchedAt is the URL on every node that has one: an operator reading the
+// proof needs to know where it came from, and the finding id alone encodes it
+// only by convention.
+func appendEvidence(disc *graphragpb.DiscoveryResult, findingID string, ev nucleiEvent) {
+	add := func(kind, content string, withURL bool) {
+		if content == "" {
+			return
+		}
+		e := &graphragpb.Evidence{
+			Id:        proto.String(findingID + ":" + kind),
+			FindingId: findingID,
+			Type:      kind,
+			Content:   proto.String(content),
+		}
+		if withURL && ev.MatchedAt != "" {
+			e.Url = proto.String(ev.MatchedAt)
+		}
+		disc.Evidence = append(disc.Evidence, e)
+	}
+
+	// The curl command nuclei prints is the whole reproduction: without it a
+	// reader has a claim and no way to check it.
+	add(evidenceReproduction, strings.TrimSpace(ev.CurlCommand), true)
+	// Extracted results are the matched values themselves: the version
+	// banner, the leaked path, the response fragment that matched. One per
+	// line, in nuclei's order.
+	add(evidenceExtracted, strings.Join(ev.ExtractedResults, "\n"), true)
+	add(evidenceCWE, strings.Join(ev.Info.Classification.CweID, ","), false)
+	add(evidenceCVSSVector, strings.TrimSpace(ev.Info.Classification.CvssMetrics), false)
+	// The protocol the template matched over (http, dns, tcp, ssl...). It is
+	// not a tag, so it does not belong in Category beside info.tags.
+	add(evidenceProtocol, strings.TrimSpace(ev.Type), true)
 }
 
 // normaliseSeverity maps nuclei's severity strings to the canonical set

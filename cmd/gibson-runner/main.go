@@ -345,7 +345,7 @@ func runDefault() {
 		emitResponse(&componentpb.CallToolResponse{
 			Error: &componentpb.ComponentError{
 				Code:      code,
-				Message:   withStderrTail(execErr.Error(), resp),
+				Message:   withOutputTail(execErr.Error(), resp),
 				Retryable: false,
 			},
 		})
@@ -471,28 +471,53 @@ func healthAddr() string {
 	return ":8081"
 }
 
-// stderrTailBytes bounds how much of a failing tool's stderr is folded into
+// outputTailBytes bounds how much of a failing tool's output is folded into
 // the error message. Enough for a usage error or a stack of warnings ending
 // in the real cause; far short of letting a chatty tool's output become the
 // error itself.
-const stderrTailBytes = 2000
+const outputTailBytes = 2000
 
-// withStderrTail appends the tail of the tool's stderr to msg.
+// withOutputTail appends the tool's own account of the failure to msg.
 //
-// A tool that fails says why on stderr; the runner's own error is usually
-// just "exit status 1". Only the tail is kept, because the cause is at the
-// end and the head is progress noise.
-func withStderrTail(msg string, resp *registry.ExecuteResponse) string {
-	if resp == nil || len(resp.Stderr) == 0 {
+// CallToolResponse carries no stdout, stderr or exit-code field, so this
+// message is the only channel out of the sandbox. ComponentError holds a
+// string, and the runner's own error is usually just "exit status 1".
+//
+// Three sources, in the order a reader wants them (gibson-executor#89):
+//
+//   - the exit code, when the process ran and reported a non-zero one. It was
+//     recorded on ExecuteResponse by every parser and read by nothing, so the
+//     one number that distinguishes "tool not found" from "tool refused the
+//     target" never left the sandbox.
+//   - stderr, where a tool that fails normally says why.
+//   - stdout, but only when stderr is empty. A tool that writes its
+//     diagnostics to stdout and exits non-zero used to produce an error with
+//     no detail at all, because Stdout was likewise recorded and never read.
+//     It is labelled, so it is not mistaken for stderr.
+//
+// Only the tail of a stream is kept: the cause is at the end and the head is
+// progress noise.
+func withOutputTail(msg string, resp *registry.ExecuteResponse) string {
+	if resp == nil {
 		return msg
 	}
-	tail := resp.Stderr
-	if len(tail) > stderrTailBytes {
-		tail = tail[len(tail)-stderrTailBytes:]
+	parts := []string{msg}
+	if resp.ExitCode != 0 {
+		parts = append(parts, fmt.Sprintf("exit code %d", resp.ExitCode))
 	}
-	trimmed := strings.TrimSpace(string(tail))
-	if trimmed == "" {
-		return msg
+	if t := tail(resp.Stderr); t != "" {
+		parts = append(parts, t)
+	} else if t := tail(resp.Stdout); t != "" {
+		parts = append(parts, "stdout: "+t)
 	}
-	return fmt.Sprintf("%s: %s", msg, trimmed)
+	return strings.Join(parts, ": ")
+}
+
+// tail returns the trimmed last outputTailBytes of b, or "" when there is
+// nothing to say.
+func tail(b []byte) string {
+	if len(b) > outputTailBytes {
+		b = b[len(b)-outputTailBytes:]
+	}
+	return strings.TrimSpace(string(b))
 }

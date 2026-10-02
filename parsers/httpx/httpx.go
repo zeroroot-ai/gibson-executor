@@ -147,7 +147,7 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 	resp.Discovery = disc
 	resp.ParseQuality = quality
 	// The per-target reasons go on Stderr, the one channel the runner forwards
-	// to the caller (withStderrTail). They are labelled so they are not read as
+	// to the caller (withOutputTail). They are labelled so they are not read as
 	// httpx's own stderr.
 	if len(targetErrs) > 0 {
 		resp.Stderr = append(resp.Stderr, []byte("\nhttpx: "+strconv.Itoa(len(targetErrs))+" target(s) did not answer:\n")...)

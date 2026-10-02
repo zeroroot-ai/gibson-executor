@@ -369,3 +369,85 @@ func TestEveryParserDeclaresADefaultTimeout(t *testing.T) {
 		}
 	}
 }
+
+// TestWithOutputTail is gibson-executor#89.
+//
+// ExecuteResponse.ExitCode and ExecuteResponse.Stdout were written by every
+// parser and read by nothing. CallToolResponse carries no stdout, stderr or
+// exit-code field, so the error message is the only way any of it leaves the
+// sandbox: without these, a tool that printed its diagnosis on stdout and
+// exited non-zero produced "exit status 1" and nothing else.
+func TestWithOutputTail(t *testing.T) {
+	cases := []struct {
+		name string
+		resp *registry.ExecuteResponse
+		want []string
+		deny []string
+	}{{
+		name: "nil response leaves the message alone",
+		resp: nil,
+		want: []string{"boom"},
+	}, {
+		name: "exit code reaches the caller",
+		resp: &registry.ExecuteResponse{ExitCode: 127},
+		want: []string{"boom", "exit code 127"},
+	}, {
+		name: "stderr is preferred when both streams spoke",
+		resp: &registry.ExecuteResponse{
+			ExitCode: 1,
+			Stderr:   []byte("FTL could not resolve target\n"),
+			Stdout:   []byte("progress 1/10\n"),
+		},
+		want: []string{"exit code 1", "FTL could not resolve target"},
+		deny: []string{"progress 1/10"},
+	}, {
+		// The case the change exists for: a tool that writes its diagnosis to
+		// stdout and says nothing on stderr.
+		name: "stdout is used when stderr is empty, and labelled",
+		resp: &registry.ExecuteResponse{
+			ExitCode: 2,
+			Stdout:   []byte("error: unknown flag --jsonl\n"),
+		},
+		want: []string{"exit code 2", "stdout: error: unknown flag --jsonl"},
+	}, {
+		name: "exit code 0 is not reported, because it says nothing",
+		resp: &registry.ExecuteResponse{ExitCode: 0, Stderr: []byte("parse error at line 3")},
+		want: []string{"parse error at line 3"},
+		deny: []string{"exit code"},
+	}, {
+		name: "whitespace-only output adds nothing",
+		resp: &registry.ExecuteResponse{Stderr: []byte("   \n\t\n"), Stdout: []byte("\n")},
+		want: []string{"boom"},
+		deny: []string{"stdout:"},
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := withOutputTail("boom", tc.resp)
+			for _, w := range tc.want {
+				if !strings.Contains(got, w) {
+					t.Errorf("message %q does not contain %q", got, w)
+				}
+			}
+			for _, d := range tc.deny {
+				if strings.Contains(got, d) {
+					t.Errorf("message %q should not contain %q", got, d)
+				}
+			}
+		})
+	}
+}
+
+// TestWithOutputTail_BoundsAChattyTool keeps the message from becoming the
+// output. Only the tail is kept, because the cause is at the end.
+func TestWithOutputTail_BoundsAChattyTool(t *testing.T) {
+	noise := strings.Repeat("x", outputTailBytes*3)
+	resp := &registry.ExecuteResponse{Stderr: []byte(noise + "THE REAL CAUSE")}
+	got := withOutputTail("boom", resp)
+	if !strings.Contains(got, "THE REAL CAUSE") {
+		t.Errorf("the tail was dropped: %q", got[:min(80, len(got))])
+	}
+	if len(got) > outputTailBytes+128 {
+		t.Errorf("message is %d bytes; the cap is %d plus the prefix", len(got), outputTailBytes)
+	}
+}

@@ -546,8 +546,9 @@ func TestCatalogEntryIsComplete(t *testing.T) {
 // TestRegisteredInTheRegistry: a parser that is not registered cannot run, and
 // nothing else would notice.
 func TestRegisteredInTheRegistry(t *testing.T) {
-	names := []string{}
-	for _, e := range registry.Catalog() {
+	catalog := registry.Catalog()
+	names := make([]string, 0, len(catalog))
+	for _, e := range catalog {
 		names = append(names, e.Name)
 	}
 	sort.Strings(names)

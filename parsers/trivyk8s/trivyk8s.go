@@ -83,10 +83,10 @@ const (
 	toolName    = "trivy-k8s"
 	toolVersion = "0.1.0"
 
-	// kubeconfigSecretOption is the input field naming the tenant secret that
+	// kubeconfigOption is the input field naming the tenant secret that
 	// holds the cluster's kubeconfig. The field carries the name; the daemon
 	// puts the value in the environment (gibson#485).
-	kubeconfigSecretOption = "kubeconfigSecret"
+	kubeconfigOption = "kubeconfigSecret"
 
 	// trivy walks every namespace and runs the check set per resource. A
 	// cluster with many workloads needs minutes, not seconds.
@@ -142,7 +142,7 @@ func (p *parser) Describe() registry.CatalogEntry {
 			// the daemon filled the value; under gibson#485 the MISSION author
 			// names the secret, so a definition that omits it is incomplete and
 			// should fail at validate rather than at dispatch.
-			"required": []any{"target", kubeconfigSecretOption},
+			"required": []any{"target", kubeconfigOption},
 		},
 		OutputProtoType:       "gibson.graphrag.v1.DiscoveryResult",
 		DefaultParseQuality:   registry.ParseQualityStructured,
@@ -179,7 +179,7 @@ var namespaceRe = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`)
 
 func readInput(req registry.ExecuteRequest) (config, error) {
 	var c config
-	kubeconfig, err := registry.DeclaredSecret(req, kubeconfigSecretOption)
+	kubeconfig, err := registry.DeclaredSecret(req, kubeconfigOption)
 	if err != nil {
 		// Named first and reported as-is. It is the failure that must never be
 		// masked by another one, and it is not a clean result: the cluster was

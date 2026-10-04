@@ -296,7 +296,7 @@ jobs:
   # types apply now.
   policy-guards:
     name: policy-guards
-    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@1366fb5a29590e522bf5a74308f55bb39a4edb56 # v0.5.1
+    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@40c67fd77152f2c4924abccbd992dbca065f325b # v0.8.2
 
   # ---- moved in from architectural-doc-coverage.yml (#341) ----
   # Reads the PR body/diff against the docs repo, so it is meaningless in the

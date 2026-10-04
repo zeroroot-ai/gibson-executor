@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.113.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.112.0...v0.113.0) (2026-10-04)
+
+
+### Features
+
+* **tools:** a cluster tool reads its kubeconfig from the environment ([#109](https://github.com/zeroroot-ai/gibson-executor/issues/109)) ([42e1e36](https://github.com/zeroroot-ai/gibson-executor/commit/42e1e36e17a048dec4c6c5ab9dc4067edecc6772))
+
 ## [0.112.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.111.0...v0.112.0) (2026-10-02)
 
 

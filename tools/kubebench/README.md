@@ -26,24 +26,35 @@ executor to run on the node, which is a different tool.
 | field | required | meaning |
 |---|---|---|
 | `target` | yes | Cluster name, a DNS-style label. It names the result. It never locates the cluster. |
-| `kubeconfig` | yes, filled by the daemon | Content of a kubeconfig file. |
+| `kubeconfigSecret` | yes | NAME of the tenant secret holding a kubeconfig for the cluster. A name, never a value. |
 | `benchmark` | no | `cis-<major>.<minor>`. Default: chosen from the version the cluster reports. |
 
 `args` is rejected. The tool exposes no kube-bench flag.
 
 ### The credential
 
-A TOOL node cannot receive a secret today (gibson#485). The agreed design is
-that the target names a tenant secret, the daemon resolves it server-side, and
-the value arrives in the input envelope. This tool defines the field it will
-read, `kubeconfig`, and reads nothing else: no path, no environment variable,
-no default location.
+The mission declares which named tenant secrets its tools may receive
+(gibson#485). `kubeconfigSecret` names one of them. The daemon resolves the
+name as itself at dispatch and puts the VALUE in the tool's environment, under
+the variable `sdk/secretenv` derives — `goat-kubeconfig` arrives as
+`GIBSON_SECRET_GOAT_KUBECONFIG`.
 
-When the field is missing the tool fails with a message that names it, before
-it runs any process. When the kubeconfig is present but wrong, the tool fails
-and names what is wrong: unreadable, an exec plugin, a file reference, or a
-cluster that does not answer. Every one of these is an error. None is an empty
-result.
+The input carries the name, never the value. A tool's input JSON is captured
+with the tool call, so a credential written into the input would be stored and
+displayed. This tool therefore reads no credential value from its input, and no
+path, no ambient environment variable and no default location either.
+
+Two failures, reported differently, because the fix is in a different place:
+
+- `kubeconfigSecret` is absent — the mission named no secret for this tool.
+- `kubeconfigSecret` names a secret the environment does not carry — the
+  mission named it but did not declare it for this tool, so the daemon handed
+  it to something else or to nothing. The message names the variable it looked
+  for.
+
+When the kubeconfig is present but wrong, the tool fails and names what is
+wrong: unreadable, an exec plugin, a file reference, or a cluster that does not
+answer. Every one of these is an error. None is an empty result.
 
 A kubeconfig that needs an exec plugin, `auth-provider`, `tokenFile` or a file
 path for a certificate is refused. The kubeconfig is tenant-supplied and each

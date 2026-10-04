@@ -21,13 +21,17 @@
 //
 // # Credential
 //
-// A TOOL node cannot receive a secret yet (gibson#485). The contract this
-// tool reads is the input field "kubeconfig", holding the kubeconfig file
-// CONTENT. The daemon fills it: the target names a tenant secret, the daemon
-// resolves it server-side, and the value arrives in the input envelope. A
-// mission author must never set it. This package reads no path, no
-// environment variable and no default location for a credential. When the
-// field is absent the tool fails and says so (see errKubeconfigMissing).
+// The mission declares which named tenant secrets its tools may receive
+// (gibson#485). The input field "kubeconfigSecret" names one of them; the
+// daemon resolves the name as itself at dispatch and puts the VALUE in this
+// process's environment, under the name secretenv.Key derives.
+//
+// The input carries the NAME, never the value. A tool's input JSON is captured
+// with the tool call, so a credential written there would be stored and
+// displayed. This package therefore reads no credential value from its input,
+// and no path, no ambient environment variable and no default location either.
+// When the mission named nothing, or named a secret it did not declare for
+// this tool, the tool fails and says which of the two happened.
 //
 // # Result shape
 //
@@ -66,6 +70,11 @@ import (
 const (
 	toolName    = "kube-bench"
 	toolVersion = "0.1.0"
+
+	// kubeconfigSecretOption is the input field naming the tenant secret that
+	// holds the cluster's kubeconfig. The field carries the name; the daemon
+	// puts the value in the environment (gibson#485).
+	kubeconfigSecretOption = "kubeconfigSecret"
 
 	// The audit scripts shell out to kubectl once per object. A cluster with
 	// many roles and pods needs minutes, not seconds.
@@ -117,11 +126,11 @@ func (p *parser) Describe() registry.CatalogEntry {
 					"type":        "string",
 					"description": "Name of the cluster, as a DNS-style label. It names the result. It is never used to find the cluster: the kubeconfig does that.",
 				},
-				"kubeconfig": map[string]any{
+				"kubeconfigSecret": map[string]any{
 					"type": "string",
-					"description": "Content of a kubeconfig file. The daemon fills this field from the tenant secret the target names (gibson#485). " +
-						"Do not set it in a mission definition: a mission definition is stored and displayed. " +
-						"The tool fails with a named error when the field is empty.",
+					"description": "Name of the tenant secret holding a kubeconfig for the cluster. A name, never a value: " +
+						"a tool's input is stored with the tool call, so the value arrives in the environment instead. " +
+						"The mission must also declare this name in its secrets block for this tool (gibson#485).",
 				},
 				"benchmark": map[string]any{
 					"type": "string",
@@ -129,7 +138,11 @@ func (p *parser) Describe() registry.CatalogEntry {
 						"When absent, the version is chosen from the Kubernetes version the cluster reports.",
 				},
 			},
-			"required": []any{"target"},
+			// kubeconfigSecret is required now. It used to be optional because
+			// the daemon filled the value; under gibson#485 the MISSION author
+			// names the secret, so a definition that omits it is incomplete and
+			// should fail at validate rather than at dispatch.
+			"required": []any{"target", kubeconfigSecretOption},
 		},
 		OutputProtoType:       "gibson.graphrag.v1.DiscoveryResult",
 		DefaultParseQuality:   registry.ParseQualityStructured,
@@ -139,14 +152,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 }
 
 func (p *parser) OutputMessage() proto.Message { return nil }
-
-// errKubeconfigMissing is the message for the case this package cares about
-// most. It must name the field, the reason and the consequence, because the
-// reader is a mission operator who sees only this string.
-var errKubeconfigMissing = errors.New(
-	`kube-bench has no kubeconfig: input field "kubeconfig" is missing or empty. ` +
-		`The daemon fills this field from the tenant secret that the target names (gibson#485). ` +
-		`This is not a clean result: the cluster was never contacted and no control was assessed`)
 
 var benchmarkRe = regexp.MustCompile(`^cis-\d+\.\d+$`)
 
@@ -162,10 +167,14 @@ type config struct {
 // never be masked by another one.
 func readInput(req registry.ExecuteRequest) (config, error) {
 	var c config
-	c.kubeconfig = req.Options["kubeconfig"]
-	if strings.TrimSpace(c.kubeconfig) == "" {
-		return c, errKubeconfigMissing
+	kubeconfig, err := registry.DeclaredSecret(req, kubeconfigSecretOption)
+	if err != nil {
+		// Named first and reported as-is. It is the failure that must never be
+		// masked by another one, and it is not a clean result: the cluster was
+		// never contacted and no control was assessed.
+		return c, fmt.Errorf("kube-bench has no kubeconfig: %w", err)
 	}
+	c.kubeconfig = kubeconfig
 	if err := registry.ValidateTarget(toolName, req.Target); err != nil {
 		return c, fmt.Errorf("kube-bench target: %w", err)
 	}

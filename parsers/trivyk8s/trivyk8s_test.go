@@ -5,18 +5,42 @@ package trivyk8s
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
+	"github.com/zeroroot-ai/sdk/secretenv"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
 	"github.com/zeroroot-ai/gibson-executor/internal/sandbox"
 )
+
+// declaredSecretName is the tenant secret the tests pretend the mission
+// declared. The name is arbitrary; what matters is that the input carries it
+// and the environment carries the value, which is the whole contract.
+const declaredSecretName = "goat-kubeconfig"
+
+// handedTheKubeconfig sets up a dispatch the way the daemon does: the input
+// NAMES the secret, and the value arrives in the environment under the key
+// secretenv derives. Using secretenv here rather than a literal is deliberate —
+// if the fold ever changed on one side only, these tests would stop passing
+// instead of silently testing a variable the daemon no longer sets.
+func handedTheKubeconfig(t *testing.T, value string, extra ...string) map[string]string {
+	t.Helper()
+	if len(extra)%2 != 0 {
+		t.Fatalf("handedTheKubeconfig: %d extra values, want key/value pairs", len(extra))
+	}
+	t.Setenv(secretenv.Key(declaredSecretName), value)
+	opts := map[string]string{kubeconfigSecretOption: declaredSecretName}
+	for i := 0; i < len(extra); i += 2 {
+		opts[extra[i]] = extra[i+1]
+	}
+	return opts
+}
 
 // TestMain lets the test binary stand in for the runner: sandbox.Apply
 // re-execs the current binary to set RLIMIT_AS, and RunPreExec answers it.
@@ -355,20 +379,53 @@ func TestEmptyAndShapeChangedReportsFail(t *testing.T) {
 
 // TestMissingKubeconfigIsANamedError is the fourth criterion's first half, and
 // what the container smoke asserts in the image.
+//
+// Two different problems, and the message has to tell them apart: the mission
+// named no secret, or it named one it did not declare for this tool. The fix is
+// in a different place for each.
 func TestMissingKubeconfigIsANamedError(t *testing.T) {
-	for _, kc := range []string{"", "   ", "\n\t"} {
-		_, err := readInput(registry.ExecuteRequest{Target: "goat", Options: map[string]string{"kubeconfig": kc}})
-		if !errors.Is(err, errKubeconfigMissing) {
-			t.Fatalf("kubeconfig %q: err = %v, want errKubeconfigMissing", kc, err)
+	for name, opts := range map[string]map[string]string{
+		"field absent":           nil,
+		"field empty":            {kubeconfigSecretOption: ""},
+		"only spaces":            {kubeconfigSecretOption: "   "},
+		"named but not declared": {kubeconfigSecretOption: "a-secret-nobody-handed-over"},
+	} {
+		_, err := readInput(registry.ExecuteRequest{Target: "goat", Options: opts})
+		if err == nil {
+			t.Fatalf("%s: readInput accepted a request with no kubeconfig", name)
+		}
+		// A mission operator sees only this string, so it must name the field
+		// and say the cluster was never reached.
+		for _, want := range []string{kubeconfigSecretOption, "has no kubeconfig"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("%s: the message does not mention %q: %v", name, want, err)
+			}
 		}
 	}
-	// The message must name the field, the filler and the consequence,
-	// because a mission operator sees only this string.
-	msg := errKubeconfigMissing.Error()
-	for _, want := range []string{`"kubeconfig"`, "daemon", "gibson#485", "not a clean result"} {
-		if !strings.Contains(msg, want) {
-			t.Errorf("the error message does not mention %q: %s", want, msg)
-		}
+
+	// The two cases must not read the same.
+	_, absent := readInput(registry.ExecuteRequest{Target: "goat"})
+	_, undeclared := readInput(registry.ExecuteRequest{
+		Target: "goat", Options: map[string]string{kubeconfigSecretOption: "a-secret-nobody-handed-over"},
+	})
+	if absent.Error() == undeclared.Error() {
+		t.Error("naming no secret and naming an undeclared one report the same thing; an operator cannot tell which to fix")
+	}
+	if !strings.Contains(undeclared.Error(), secretenv.Key("a-secret-nobody-handed-over")) {
+		t.Errorf("the undeclared case does not name the variable it looked for: %v", undeclared)
+	}
+}
+
+// A credential VALUE in the input is not a credential. The input is captured
+// with the tool call, so accepting one there would make the storing path the
+// working path — which is why the field holds a name.
+func TestAnInlineKubeconfigInTheInputIsRefused(t *testing.T) {
+	_, err := readInput(registry.ExecuteRequest{
+		Target:  "goat",
+		Options: map[string]string{kubeconfigSecretOption: "apiVersion: v1\nclusters: []\n"},
+	})
+	if err == nil {
+		t.Fatal("an inline kubeconfig in the input was accepted as a credential")
 	}
 }
 
@@ -377,8 +434,11 @@ func TestMissingKubeconfigIsANamedError(t *testing.T) {
 // operator fixes the target and hits the same wall.
 func TestKubeconfigIsCheckedBeforeTheTarget(t *testing.T) {
 	_, err := readInput(registry.ExecuteRequest{Target: "not a dns label!", Options: map[string]string{}})
-	if !errors.Is(err, errKubeconfigMissing) {
-		t.Fatalf("err = %v, want errKubeconfigMissing to win", err)
+	if err == nil {
+		t.Fatal("readInput accepted a bad target with no kubeconfig")
+	}
+	if !strings.Contains(err.Error(), "has no kubeconfig") {
+		t.Fatalf("err = %v, want the kubeconfig to be the reported failure", err)
 	}
 }
 
@@ -441,7 +501,7 @@ func TestKubeconfigPluginsAndFileRefsAreRefused(t *testing.T) {
 func TestArgsAreRefused(t *testing.T) {
 	_, err := readInput(registry.ExecuteRequest{
 		Target:  "goat",
-		Options: map[string]string{"kubeconfig": "x"},
+		Options: handedTheKubeconfig(t, "x"),
 		Args:    []string{"--severity", "CRITICAL"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "accepts no args") {
@@ -451,15 +511,14 @@ func TestArgsAreRefused(t *testing.T) {
 
 // TestNamespaceIsValidated: the value reaches an argv.
 func TestNamespaceIsValidated(t *testing.T) {
-	base := map[string]string{"kubeconfig": "x"}
 	for _, bad := range []string{"../etc", "Goat", "a b", "-n", "ns;rm -rf /", strings.Repeat("a", 64)} {
-		opts := map[string]string{"kubeconfig": base["kubeconfig"], "namespace": bad}
+		opts := handedTheKubeconfig(t, "x", "namespace", bad)
 		if _, err := readInput(registry.ExecuteRequest{Target: "goat", Options: opts}); err == nil {
 			t.Errorf("namespace %q was accepted", bad)
 		}
 	}
 	for _, good := range []string{"goat", "kube-system", "a", "a-1-b"} {
-		opts := map[string]string{"kubeconfig": base["kubeconfig"], "namespace": good}
+		opts := handedTheKubeconfig(t, "x", "namespace", good)
 		cfg, err := readInput(registry.ExecuteRequest{Target: "goat", Options: opts})
 		if err != nil {
 			t.Errorf("namespace %q was refused: %v", good, err)
@@ -523,23 +582,27 @@ func TestCatalogEntryIsComplete(t *testing.T) {
 	if !ok {
 		t.Fatal("InputSchema has no properties")
 	}
-	for _, f := range []string{"target", "kubeconfig", "namespace"} {
+	for _, f := range []string{"target", kubeconfigSecretOption, "namespace"} {
 		if _, ok := props[f]; !ok {
 			t.Errorf("InputSchema has no %q", f)
 		}
 	}
-	// kubeconfig must NOT be required: the daemon fills it, and a required
-	// field reads as one a mission author should set.
-	req, _ := e.InputSchema["required"].([]any)
-	for _, r := range req {
-		if r == "kubeconfig" {
-			t.Error("kubeconfig is marked required, which tells a mission author to set it")
-		}
+	// And NO field for the value. A schema that advertises one tells a mission
+	// author to put a credential where the tool call will store it.
+	if _, ok := props["kubeconfig"]; ok {
+		t.Error(`InputSchema still declares "kubeconfig", which would carry the value in the stored input`)
 	}
-	kc, _ := props["kubeconfig"].(map[string]any)
+	// Required, because the mission author names the secret now. An optional
+	// field reads as one the daemon fills.
+	if !slices.Contains(requiredFields(t, e), kubeconfigSecretOption) {
+		t.Errorf("%s is not required; a mission that omits it should fail at validate, not at dispatch", kubeconfigSecretOption)
+	}
+	kc, _ := props[kubeconfigSecretOption].(map[string]any)
 	desc, _ := kc["description"].(string)
-	if !strings.Contains(desc, "Do not set it in a mission definition") {
-		t.Error("the kubeconfig description does not warn against setting it in a mission")
+	for _, want := range []string{"Name of the tenant secret", "never a value"} {
+		if !strings.Contains(desc, want) {
+			t.Errorf("the %s description does not say %q: %s", kubeconfigSecretOption, want, desc)
+		}
 	}
 }
 
@@ -570,4 +633,24 @@ func TestNoVulnerabilityScannerIsRun(t *testing.T) {
 	if scanners != "misconfig" {
 		t.Errorf("scanners = %q, want misconfig", scanners)
 	}
+}
+
+// requiredFields reads the schema's required list as strings. The schema is
+// map[string]any, so the list arrives as []any and a direct comparison would
+// never match.
+func requiredFields(t *testing.T, e registry.CatalogEntry) []string {
+	t.Helper()
+	raw, ok := e.InputSchema["required"].([]any)
+	if !ok {
+		t.Fatal("InputSchema has no required list")
+	}
+	out := make([]string, 0, len(raw))
+	for _, r := range raw {
+		s, ok := r.(string)
+		if !ok {
+			t.Fatalf("required entry %v is not a string", r)
+		}
+		out = append(out, s)
+	}
+	return out
 }

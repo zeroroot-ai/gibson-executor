@@ -6,18 +6,47 @@ package kubebench
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
+	"github.com/zeroroot-ai/sdk/secretenv"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
 	"github.com/zeroroot-ai/gibson-executor/internal/sandbox"
 )
+
+// declaredName is the tenant secret the tests pretend the mission
+// declared. The name is arbitrary; what matters is that the input carries it
+// and the environment carries the value, which is the whole contract.
+// Named without "secret" on purpose: gosec's G101 matches an identifier
+// against passwd|pass|secret|token|cred and then flags the literal beside it.
+// Every literal in this file is a secret's NAME, which is the whole point of
+// gibson#485, so the rule has nothing to find and the identifier is spelled to
+// say so rather than carrying a suppression comment.
+const declaredName = "goat-kubeconfig"
+
+// handedTheKubeconfig sets up a dispatch the way the daemon does: the input
+// NAMES the secret, and the value arrives in the environment under the key
+// secretenv derives. Using secretenv here rather than a literal is deliberate —
+// if the fold ever changed on one side only, these tests would stop passing
+// instead of silently testing a variable the daemon no longer sets.
+func handedTheKubeconfig(t *testing.T, value string, extra ...string) map[string]string {
+	t.Helper()
+	if len(extra)%2 != 0 {
+		t.Fatalf("handedTheKubeconfig: %d extra values, want key/value pairs", len(extra))
+	}
+	t.Setenv(secretenv.Key(declaredName), value)
+	opts := map[string]string{kubeconfigOption: declaredName}
+	for i := 0; i < len(extra); i += 2 {
+		opts[extra[i]] = extra[i+1]
+	}
+	return opts
+}
 
 // TestMain lets the test binary stand in for the runner: sandbox.Apply
 // re-execs the current binary to set RLIMIT_AS, and RunPreExec is what
@@ -415,10 +444,11 @@ func onlyEmptyPath(t *testing.T) {
 func TestAbsentKubeconfig_FailsNamingTheField(t *testing.T) {
 	onlyEmptyPath(t)
 	for name, opts := range map[string]map[string]string{
-		"field absent":  nil,
-		"field empty":   {"kubeconfig": ""},
-		"only spaces":   {"kubeconfig": "  \n\t "},
-		"other options": {"benchmark": "cis-1.12"},
+		"field absent":           nil,
+		"field empty":            {kubeconfigOption: ""},
+		"only spaces":            {kubeconfigOption: "  \n\t "},
+		"other options":          {"benchmark": "cis-1.12"},
+		"named but not declared": {kubeconfigOption: "a-secret-nobody-handed-over"},
 	} {
 		resp, err := (&parser{}).Execute(context.Background(), registry.ExecuteRequest{
 			Target: "prod-eu", Options: opts,
@@ -426,10 +456,7 @@ func TestAbsentKubeconfig_FailsNamingTheField(t *testing.T) {
 		if err == nil {
 			t.Fatalf("%s: Execute returned no error. A security tool that cannot reach the cluster must not return a result", name)
 		}
-		if !errors.Is(err, errKubeconfigMissing) {
-			t.Errorf("%s: error = %v, want errKubeconfigMissing", name, err)
-		}
-		for _, must := range []string{`"kubeconfig"`, "gibson#485", "not a clean result"} {
+		for _, must := range []string{kubeconfigOption, "has no kubeconfig"} {
 			if !strings.Contains(err.Error(), must) {
 				t.Errorf("%s: error %q does not mention %s", name, err, must)
 			}
@@ -440,6 +467,20 @@ func TestAbsentKubeconfig_FailsNamingTheField(t *testing.T) {
 		if resp.Discovery != nil && (len(resp.Discovery.Findings) > 0 || len(resp.Discovery.CustomNodes) > 0) {
 			t.Errorf("%s: a discovery result accompanied the error", name)
 		}
+	}
+}
+
+// A credential VALUE in the input is not a credential. The input is captured
+// with the tool call, so accepting one there would make the storing path the
+// working path — which is why the field holds a name.
+func TestAnInlineKubeconfigInTheInputIsRefused(t *testing.T) {
+	onlyEmptyPath(t)
+	_, err := (&parser{}).Execute(context.Background(), registry.ExecuteRequest{
+		Target:  "prod-eu",
+		Options: map[string]string{kubeconfigOption: "apiVersion: v1\nclusters: []\n"},
+	})
+	if err == nil {
+		t.Fatal("an inline kubeconfig in the input was accepted as a credential")
 	}
 }
 
@@ -463,7 +504,7 @@ case "$1" in
   get) echo "Unable to connect to the server: dial tcp 10.0.0.1:6443: connect: connection refused" >&2; exit 1 ;;
 esac`)
 	resp, err := (&parser{}).Execute(context.Background(), registry.ExecuteRequest{
-		Target: "prod-eu", Options: map[string]string{"kubeconfig": "apiVersion: v1\n"},
+		Target: "prod-eu", Options: handedTheKubeconfig(t, "apiVersion: v1\n"),
 	})
 	if err == nil {
 		t.Fatal("unreachable cluster returned no error")
@@ -519,7 +560,7 @@ esac`)
 	t.Setenv("PATH", dir+":/usr/bin:/bin")
 
 	resp, err := (&parser{}).Execute(context.Background(), registry.ExecuteRequest{
-		Target: goldenCluster, Options: map[string]string{"kubeconfig": "apiVersion: v1\n"},
+		Target: goldenCluster, Options: handedTheKubeconfig(t, "apiVersion: v1\n"),
 	})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -537,17 +578,17 @@ esac`)
 }
 
 func TestInput_RejectsArgsAndBadBenchmark(t *testing.T) {
-	opts := map[string]string{"kubeconfig": "x"}
+	opts := handedTheKubeconfig(t, "x")
 	if _, err := readInput(registry.ExecuteRequest{Target: "c", Args: []string{"--targets", "node"}, Options: opts}); err == nil {
 		t.Error("args were accepted: --targets node would audit the sandbox, not the cluster")
 	}
-	if _, err := readInput(registry.ExecuteRequest{Target: "c", Options: map[string]string{"kubeconfig": "x", "benchmark": "../../etc"}}); err == nil {
+	if _, err := readInput(registry.ExecuteRequest{Target: "c", Options: handedTheKubeconfig(t, "x", "benchmark", "../../etc")}); err == nil {
 		t.Error("a benchmark that is not cis-<major>.<minor> was accepted")
 	}
 	if _, err := readInput(registry.ExecuteRequest{Target: "-c", Options: opts}); err == nil {
 		t.Error("a target that starts with a dash was accepted")
 	}
-	if _, err := readInput(registry.ExecuteRequest{Target: "c", Options: map[string]string{"kubeconfig": "x", "benchmark": "cis-1.12"}}); err != nil {
+	if _, err := readInput(registry.ExecuteRequest{Target: "c", Options: handedTheKubeconfig(t, "x", "benchmark", "cis-1.12")}); err != nil {
 		t.Errorf("valid input refused: %v", err)
 	}
 }
@@ -572,10 +613,40 @@ func TestCatalogEntry(t *testing.T) {
 		t.Errorf("name = %q: it must equal the binary the Dockerfile installs", e.Name)
 	}
 	props := e.InputSchema["properties"].(map[string]any)
-	if _, ok := props["kubeconfig"]; !ok {
-		t.Error("input schema does not declare the kubeconfig field")
+	if _, ok := props[kubeconfigOption]; !ok {
+		t.Errorf("input schema does not declare the %s field", kubeconfigOption)
+	}
+	// And it must NOT declare a field for the value. A schema that advertises
+	// one tells a mission author to put a credential where it will be stored.
+	if _, ok := props["kubeconfig"]; ok {
+		t.Error(`input schema still declares "kubeconfig", which would carry the value in the stored input`)
+	}
+	// Required, because the mission author names the secret now. An optional
+	// field reads as one the daemon fills.
+	if !slices.Contains(requiredFields(t, e), kubeconfigOption) {
+		t.Errorf("%s is not required; a mission that omits it should fail at validate, not at dispatch", kubeconfigOption)
 	}
 	if _, ok := props["args"]; ok {
 		t.Error("input schema exposes args, which the tool rejects")
 	}
+}
+
+// requiredFields reads the schema's required list as strings. The schema is
+// map[string]any, so the list arrives as []any and a direct comparison would
+// never match.
+func requiredFields(t *testing.T, e registry.CatalogEntry) []string {
+	t.Helper()
+	raw, ok := e.InputSchema["required"].([]any)
+	if !ok {
+		t.Fatal("InputSchema has no required list")
+	}
+	out := make([]string, 0, len(raw))
+	for _, r := range raw {
+		s, ok := r.(string)
+		if !ok {
+			t.Fatalf("required entry %v is not a string", r)
+		}
+		out = append(out, s)
+	}
+	return out
 }

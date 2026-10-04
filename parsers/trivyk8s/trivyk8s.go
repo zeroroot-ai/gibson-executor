@@ -31,12 +31,17 @@
 //
 // # Credential
 //
-// A TOOL node cannot receive a secret yet (gibson#485). The contract is the
-// input field "kubeconfig", holding the kubeconfig file CONTENT, which the
-// daemon fills from the tenant secret the target names. A mission author must
-// never set it. This package reads no path, no environment variable and no
-// default location for a credential. When the field is absent the tool fails
-// and says so (see errKubeconfigMissing).
+// The mission declares which named tenant secrets its tools may receive
+// (gibson#485). The input field "kubeconfigSecret" names one of them; the
+// daemon resolves the name as itself at dispatch and puts the VALUE in this
+// process's environment, under the name secretenv.Key derives.
+//
+// The input carries the NAME, never the value. A tool's input JSON is captured
+// with the tool call, so a credential written there would be stored and
+// displayed. This package therefore reads no credential value from its input,
+// and no path, no ambient environment variable and no default location either.
+// When the mission named nothing, or named a secret it did not declare for
+// this tool, the tool fails and says which of the two happened.
 //
 // # Result shape
 //
@@ -78,6 +83,11 @@ const (
 	toolName    = "trivy-k8s"
 	toolVersion = "0.1.0"
 
+	// kubeconfigOption is the input field naming the tenant secret that
+	// holds the cluster's kubeconfig. The field carries the name; the daemon
+	// puts the value in the environment (gibson#485).
+	kubeconfigOption = "kubeconfigSecret"
+
 	// trivy walks every namespace and runs the check set per resource. A
 	// cluster with many workloads needs minutes, not seconds.
 	defaultTimeout = 900
@@ -117,18 +127,22 @@ func (p *parser) Describe() registry.CatalogEntry {
 					"type":        "string",
 					"description": "Name of the cluster, as a DNS-style label. It names the result. It is never used to find the cluster: the kubeconfig does that.",
 				},
-				"kubeconfig": map[string]any{
+				"kubeconfigSecret": map[string]any{
 					"type": "string",
-					"description": "Content of a kubeconfig file. The daemon fills this field from the tenant secret the target names (gibson#485). " +
-						"Do not set it in a mission definition: a mission definition is stored and displayed. " +
-						"The tool fails with a named error when the field is empty.",
+					"description": "Name of the tenant secret holding a kubeconfig for the cluster. A name, never a value: " +
+						"a tool's input is stored with the tool call, so the value arrives in the environment instead. " +
+						"The mission must also declare this name in its secrets block for this tool (gibson#485).",
 				},
 				"namespace": map[string]any{
 					"type":        "string",
 					"description": "Optional single namespace to audit. When absent, every namespace the credential can read is audited.",
 				},
 			},
-			"required": []any{"target"},
+			// kubeconfigSecret is required now. It used to be optional because
+			// the daemon filled the value; under gibson#485 the MISSION author
+			// names the secret, so a definition that omits it is incomplete and
+			// should fail at validate rather than at dispatch.
+			"required": []any{"target", kubeconfigOption},
 		},
 		OutputProtoType:       "gibson.graphrag.v1.DiscoveryResult",
 		DefaultParseQuality:   registry.ParseQualityStructured,
@@ -138,13 +152,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 }
 
 func (p *parser) OutputMessage() proto.Message { return nil }
-
-// errKubeconfigMissing names the field, the reason and the consequence. The
-// reader is a mission operator who sees only this string.
-var errKubeconfigMissing = errors.New(
-	`trivy-k8s has no kubeconfig: input field "kubeconfig" is missing or empty. ` +
-		`The daemon fills this field from the tenant secret that the target names (gibson#485). ` +
-		`This is not a clean result: the cluster was never contacted and no workload was audited`)
 
 // severities is the whole mapping. trivy's Severity is already a tier, so the
 // map exists to lowercase it and to refuse a value this package has not seen.
@@ -172,10 +179,14 @@ var namespaceRe = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`)
 
 func readInput(req registry.ExecuteRequest) (config, error) {
 	var c config
-	c.kubeconfig = req.Options["kubeconfig"]
-	if strings.TrimSpace(c.kubeconfig) == "" {
-		return c, errKubeconfigMissing
+	kubeconfig, err := registry.DeclaredSecret(req, kubeconfigOption)
+	if err != nil {
+		// Named first and reported as-is. It is the failure that must never be
+		// masked by another one, and it is not a clean result: the cluster was
+		// never contacted and no workload was audited.
+		return c, fmt.Errorf("trivy-k8s has no kubeconfig: %w", err)
 	}
+	c.kubeconfig = kubeconfig
 	if err := registry.ValidateTarget(toolName, req.Target); err != nil {
 		return c, fmt.Errorf("trivy-k8s target: %w", err)
 	}

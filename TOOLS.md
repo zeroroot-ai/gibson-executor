@@ -29,9 +29,11 @@ most take <200 LOC.
   at the artifact rather than a running service)
 - 🟡 kube-bench — BenchmarkRun + one Finding per failed CIS control, with the
   control's raw result as Evidence. Runs the `policies` target only, through
-  the Kubernetes API. Needs a kubeconfig that the daemon supplies
-  (gibson#485): until then it fails with an error that names the missing
-  field. See `tools/kubebench/README.md`.
+  the Kubernetes API. The mission declares which named tenant secret holds the
+  cluster's kubeconfig (gibson#485); the input names it and the daemon puts the
+  value in the tool's environment. Without it the tool fails with an error that
+  names the field and the variable it looked for. See
+  `tools/kubebench/README.md`.
 - 🟡 trivy-k8s — ClusterAudit + one Workload per resource read + one Finding per
   failed workload check, at the severity trivy reports. Covers privileged
   containers, host namespaces, hostPath mounts, added capabilities and missing
@@ -39,7 +41,8 @@ most take <200 LOC.
   `policies` target is CIS section 5, almost all of it unscored, so its output
   is broad and nearly all `low`. Execs the same `trivy` binary as the image
   scanner, limited to `--scanners misconfig` so it does not duplicate it. Needs
-  the same kubeconfig as kube-bench and refuses the same way without it.
+  a kubeconfig the same way kube-bench does, and refuses the same way without
+  it.
   - This replaced kubeaudit, which gibson-executor#88 originally asked for.
     `Shopify/kubeaudit` is archived: last release August 2024, no commits since.
     Pinning it would import a dependency tree that can never be patched.

@@ -21,7 +21,7 @@ repo built two.
 | SARIF category | Dockerfile | What it is | State |
 |---|---|---|---|
 | `trivy-gibson-executor` | `Dockerfile` | The in-guest agent that execs CLI security tooling (`nmap`, `httpx`, `nuclei`) inside a Setec microVM. | live |
-| `trivy-gibson-mcp-bridge-runner` | `Dockerfile.mcp-bridge` | The generic MCP-connector host (ADR-0048). Spawned a package-distributed vendor MCP server via `npx`/`uvx` as a stdio subprocess. | **removed 2026-09-01** |
+| `trivy-gibson-mcp-bridge-runner` | `Dockerfile.mcp-bridge` | The generic MCP-connector host (ADR-0065). Spawned a package-distributed vendor MCP server via `npx`/`uvx` as a stdio subprocess. | **removed 2026-09-01** |
 
 **The MCP-bridge image is gone.** The sdk deleted its `mcpbridge` runtime and
 the `mcp-bridge` runtime mode. MCP is connector-only now

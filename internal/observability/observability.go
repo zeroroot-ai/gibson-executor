@@ -4,7 +4,7 @@
 // Package observability provides minimal OpenTelemetry + slog initialisation
 // for the runner. It replaces the platform-clients observability package so
 // this execution layer carries no closed-module dependency (issue #98,
-// ADR-0054).
+// ADR-0089).
 //
 // Behaviour matches the prior helper: a composite W3C TraceContext + Baggage
 // propagator (so GIBSON_TRACE_ID/SPAN_ID propagate), an OTLP/gRPC trace exporter

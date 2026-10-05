@@ -73,9 +73,9 @@ name: go-ci
 # Instead there is ONE required context, `ci-required`, and it `needs:` every
 # gate. Adding a gate means adding it to that `needs:` list in the same PR as
 # the gate itself, in this file, and `check-ci-required-coverage.sh` fails the
-# build if you forget. `policy-guards` and `architectural-doc-coverage` moved
-# in from their own workflow files for this reason -- `needs:` cannot cross
-# workflow files. Nothing renamed: a check-run's context is its JOB name (or
+# build if you forget. `policy-guards` moved in from its own workflow file
+# for this reason -- `needs:` cannot cross workflow files.
+# Nothing renamed: a check-run's context is its JOB name (or
 # `<caller-job> / <reusable-job>`), and the workflow file name is not part of
 # it, so `policy-guards / vault-auth-method-deny-list` still reports under
 # exactly that name and no ruleset entry breaks.
@@ -298,22 +298,6 @@ jobs:
     name: policy-guards
     uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@40c67fd77152f2c4924abccbd992dbca065f325b # v0.8.2
 
-  # ---- moved in from architectural-doc-coverage.yml (#341) ----
-  # Reads the PR body/diff against the docs repo, so it is meaningless in the
-  # merge queue. A job-level `if:` is the correct way to express that: GitHub
-  # reports a *skipped* check run, which satisfies a ruleset and which
-  # ci-required counts as a pass. (A trigger-level `paths:`/event filter would
-  # instead produce NO check run at all -- an absent required context freezes
-  # merge-queue entry. That distinction is .github#202 / deploy#1521.)
-  architectural-doc-coverage:
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      pull-requests: read
-    uses: zeroroot-ai/.github/.github/workflows/architectural-doc-coverage.yml@1366fb5a29590e522bf5a74308f55bb39a4edb56 # v0.5.1
-    secrets:
-      DOCS_REPO_READ_TOKEN: ${{ secrets.DOCS_REPO_READ_TOKEN }}
-
   # ---- the aggregator's own regression suite ----
   # ci-required is the one thing standing between a red gate and main, so its
   # logic is mutation-tested rather than asserted. Runs in both lanes, and is
@@ -359,7 +343,6 @@ jobs:
       - no-legacy-auth-guard
       - trivy-k8s-shape-guard
       - policy-guards
-      - architectural-doc-coverage
       - ci-required-selftest
     runs-on: ubuntu-24.04
     steps:

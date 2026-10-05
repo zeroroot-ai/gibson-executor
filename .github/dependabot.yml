@@ -1,24 +1,71 @@
+# Dependabot config. It follows templates/dependabot.yml of zeroroot-ai/.github.
+# A patch or minor update is in one group and merges alone on a green merge
+# gate. A major update opens alone and waits for a person (D44).
+
 version: 2
 updates:
   - package-ecosystem: "gomod"
-    directory: "/"
-    schedule: { interval: "weekly" }
-    labels: ["dependencies", "go"]
+    directories:
+      - "/"
+      - "/tools/kubebench"
+      - "/tools/recon"
+      - "/tools/trivy"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    groups:
+      go-deps:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
   - package-ecosystem: "docker"
     directory: "/"
-    schedule: { interval: "weekly" }
-    labels: ["dependencies", "docker"]
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    groups:
+      docker-deps:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule: { interval: "weekly" }
-    labels: ["dependencies", "github-actions"]
-    # github/codeql-action is one action with several sub-actions (init,
-    # autobuild, analyze, upload-sarif). Dependabot sees each sub-action as
-    # its own dependency and bumps them in separate PRs. One of those PRs
-    # merged alone leaves init and analyze at different versions, and the
-    # CodeQL run fails with "Loaded a configuration file for version X, but
-    # running version Y" (.github#121). Group them so they bump together.
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
     groups:
+      # The sub-actions of codeql-action must move together, also for a major
+      # update.
       codeql-action:
         patterns:
           - "github/codeql-action*"
+      actions-deps:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "github/codeql-action*"
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+

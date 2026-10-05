@@ -1,7 +1,7 @@
 name: CodeQL
 
-# Epic: cicd-efficiency (board #44), slice S11b, .github#203. Scanner cadence
-# per docs/architecture/CICD-CONTEXT.md decision #9 originally chose
+# Epic: cicd-efficiency (board #44), slice S11b, .github#203. The scanner cadence
+# originally chose
 # merge_group as the authoritative trigger (pre-merge gate) plus a weekly
 # deep scan, to avoid double-firing the scan on both push and PR.
 #

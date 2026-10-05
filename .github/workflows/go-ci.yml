@@ -350,6 +350,7 @@ jobs:
     name: ci-required
     if: always()
     needs:
+      - permissive-floor
       - fast
       - heavy
       - lint
@@ -368,3 +369,12 @@ jobs:
         env:
           GATE_RESULTS: ${{ toJSON(needs) }}
         run: bash scripts/ci-required-gate.sh
+
+  # This repo is Elastic License 2.0 and runs inside the sandbox. It depends on
+  # the sdk and on community libraries only: it must not import the gibson
+  # daemon or a closed module (ADR-0089, #118). The org check is default deny:
+  # every go.mod may require a first-party module only when it is sdk, adk,
+  # setec or ast-checks. That is the rule of this repo too, so the job keeps
+  # the name the org workflow gives it.
+  permissive-floor:
+    uses: zeroroot-ai/.github/.github/workflows/permissive-floor.yml@6815b30d4c26537972433711f0d86ddf73bb6c41 # v0.13.0

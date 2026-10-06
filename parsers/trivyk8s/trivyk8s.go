@@ -591,7 +591,6 @@ func buildFinding(id, ref, severity string, m misconf) *graphragpb.Finding {
 		Description: proto.String(truncate(desc, 1200)),
 		Severity:    severity,
 		Category:    proto.String(categoryMisconfig),
-		ParentType:  proto.String(nodeWorkload),
 		ParentId:    proto.String(ref),
 	}
 	if rem := strings.TrimSpace(m.Resolution); rem != "" {

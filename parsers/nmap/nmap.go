@@ -256,10 +256,6 @@ func serviceToProto(s *nmaplib.Service, portID string) *graphragpb.Service {
 		v := s.Version
 		out.Version = &v
 	}
-	if s.ExtraInfo != "" {
-		ei := s.ExtraInfo
-		out.ExtraInfo = &ei
-	}
 	return out
 }
 

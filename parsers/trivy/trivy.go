@@ -367,19 +367,15 @@ func parseReport(raw []byte) (*graphragpb.DiscoveryResult, registry.ParseQuality
 				title = fmt.Sprintf("%s in %s %s", v.VulnerabilityID, v.PkgName, v.InstalledVersion)
 			}
 			finding := &graphragpb.Finding{
-				Id:         proto.String(findingID),
-				Title:      title,
-				Severity:   severity,
-				CveIds:     proto.String(v.VulnerabilityID),
-				Category:   proto.String("vulnerable-dependency"),
-				ParentType: proto.String(nodePackage),
-				ParentId:   proto.String(pkgID),
+				Id:       proto.String(findingID),
+				Title:    title,
+				Severity: severity,
+				CveIds:   proto.String(v.VulnerabilityID),
+				Category: proto.String("vulnerable-dependency"),
+				ParentId: proto.String(pkgID),
 			}
 			if v.Description != "" {
 				finding.Description = proto.String(v.Description)
-			}
-			if score, ok := cvssScore(v.CVSS); ok {
-				finding.CvssScore = proto.Float64(score)
 			}
 			if v.FixedVersion != "" {
 				finding.Remediation = proto.String(fmt.Sprintf("Upgrade %s to %s", v.PkgName, v.FixedVersion))

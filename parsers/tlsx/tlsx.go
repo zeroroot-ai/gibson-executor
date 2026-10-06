@@ -230,7 +230,6 @@ func addFinding(disc *graphragpb.DiscoveryResult, ep, kind, severity, title, des
 		Severity:    severity,
 		Description: proto.String(description),
 		Category:    proto.String("tls-configuration"),
-		ParentType:  proto.String("service"),
 		ParentId:    proto.String(ep),
 	}
 	disc.Findings = append(disc.Findings, f)

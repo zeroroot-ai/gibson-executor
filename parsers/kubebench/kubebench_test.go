@@ -149,8 +149,8 @@ func TestGolden_RealCapture(t *testing.T) {
 	if f.GetCategory() != categoryCIS {
 		t.Errorf("category = %q", f.GetCategory())
 	}
-	if f.GetParentType() != nodeRun || f.GetParentId() != goldenRun {
-		t.Errorf("finding parent = %s %s, want %s %s", f.GetParentType(), f.GetParentId(), nodeRun, goldenRun)
+	if f.GetParentId() != goldenRun {
+		t.Errorf("finding parent = %s, want %s", f.GetParentId(), goldenRun)
 	}
 
 	run := runNode(t, disc).GetProperties()

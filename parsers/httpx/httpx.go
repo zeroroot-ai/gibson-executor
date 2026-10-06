@@ -264,10 +264,6 @@ func appendProbe(disc *graphragpb.DiscoveryResult, r httpxResult) {
 		ct := r.ContentType
 		ep.ContentType = &ct
 	}
-	if r.ContentLength > 0 {
-		cl := r.ContentLength
-		ep.ContentLength = &cl
-	}
 	if r.Title != "" {
 		t := r.Title
 		ep.Title = &t
@@ -280,13 +276,11 @@ func appendProbe(disc *graphragpb.DiscoveryResult, r httpxResult) {
 			continue
 		}
 		parent := epID
-		parentType := "endpoint"
 		techID := fmt.Sprintf("tech:%s:%s", r.URL, t)
 		disc.Technologies = append(disc.Technologies, &graphragpb.Technology{
-			Id:         &techID,
-			Name:       t,
-			ParentId:   &parent,
-			ParentType: &parentType,
+			Id:       &techID,
+			Name:     t,
+			ParentId: &parent,
 		})
 	}
 }
@@ -418,7 +412,6 @@ func addHeaderFinding(disc *graphragpb.DiscoveryResult, target, kind, severity, 
 		Severity:    severity,
 		Description: proto.String(fmt.Sprintf("%s %s", target, why)),
 		Category:    proto.String("security-header"),
-		ParentType:  proto.String("endpoint"),
 		ParentId:    proto.String(target),
 	})
 }

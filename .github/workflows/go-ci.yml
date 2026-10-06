@@ -113,7 +113,7 @@ jobs:
   # ---- fast tier (pull_request): reusable mod-tidy/vet/build/test ----
   fast:
     if: github.event_name == 'pull_request'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@40c67fd77152f2c4924abccbd992dbca065f325b # v0.8.2
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@eaa991cb73a79080f5ce1223b2f5332c47e02c70 # v0.10.5
     with:
       tier: fast
       skip-lint: true # gibson-executor runs its own pinned golangci-lint below (make lint)
@@ -121,7 +121,7 @@ jobs:
   # ---- heavy tier (merge_group): reusable race + govulncheck ----
   heavy:
     if: github.event_name == 'merge_group'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@40c67fd77152f2c4924abccbd992dbca065f325b # v0.8.2
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@eaa991cb73a79080f5ce1223b2f5332c47e02c70 # v0.10.5
     with:
       tier: heavy
 
@@ -207,7 +207,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: build the image under test
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -296,7 +296,7 @@ jobs:
   # types apply now.
   policy-guards:
     name: policy-guards
-    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@40c67fd77152f2c4924abccbd992dbca065f325b # v0.8.2
+    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@eaa991cb73a79080f5ce1223b2f5332c47e02c70 # v0.10.5
 
   # ---- the aggregator's own regression suite ----
   # ci-required is the one thing standing between a red gate and main, so its

@@ -31,6 +31,8 @@ github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWD
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/zeroroot-ai/sdk v0.198.1-0.20261006184755-6b8404f86eda h1:xksQVQEzDpVmvVO7i1OBS7R/f6xsvqzq3kreJSce97s=
 github.com/zeroroot-ai/sdk v0.198.1-0.20261006184755-6b8404f86eda/go.mod h1:RGKgTNatLIAhrtDzi1OeRIKdi3YwfmsGv1dcicrkJHQ=
+github.com/zeroroot-ai/sdk v0.198.1-0.20261006224325-820cf19d3d22 h1:7Kw4vy49S4VIb0pCFIYef6XKjwLl6KJHiRaaNV1QOJs=
+github.com/zeroroot-ai/sdk v0.198.1-0.20261006224325-820cf19d3d22/go.mod h1:RGKgTNatLIAhrtDzi1OeRIKdi3YwfmsGv1dcicrkJHQ=
 github.com/zeroroot-ai/sdk v0.201.0 h1:U+IC6n+vxZUwPYzDRTICdysYqGOmuyelNcw8wkboZsg=
 github.com/zeroroot-ai/sdk v0.201.0/go.mod h1:uO5pUB3d5lC+EaA/Z0Jfquzxo1KsXak+oigIRQXCf2A=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=

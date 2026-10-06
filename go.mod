@@ -11,7 +11,7 @@ retract v1.0.0
 
 require (
 	github.com/Ullaakut/nmap/v3 v3.1.0
-	github.com/zeroroot-ai/sdk v0.198.1-0.20261006184755-6b8404f86eda
+	github.com/zeroroot-ai/sdk v0.198.1-0.20261006224325-820cf19d3d22
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0

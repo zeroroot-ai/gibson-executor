@@ -15,7 +15,6 @@ import (
 	"sync"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/policy"
 )
@@ -44,12 +43,13 @@ type ExecuteResponse struct {
 // ParseQuality mirrors gibson.component.v1.ParseQuality.
 type ParseQuality int32
 
+// The parse qualities a parser reports. The zero value is unspecified, and no
+// parser reports it.
 const (
-	ParseQualityUnspecified ParseQuality = 0
-	ParseQualityStructured  ParseQuality = 1
-	ParseQualityPartial     ParseQuality = 2
-	ParseQualityRaw         ParseQuality = 3
-	ParseQualityFailed      ParseQuality = 4
+	ParseQualityStructured ParseQuality = 1
+	ParseQualityPartial    ParseQuality = 2
+	ParseQualityRaw        ParseQuality = 3
+	ParseQualityFailed     ParseQuality = 4
 )
 
 // CatalogEntry is the self-description a parser emits via Parser.Describe;
@@ -84,12 +84,6 @@ type Parser interface {
 	// parses the output into a DiscoveryResult. Implementations must populate
 	// response.ParseQuality even on failure.
 	Execute(ctx context.Context, req ExecuteRequest) (*ExecuteResponse, error)
-
-	// OutputMessage returns a fresh empty proto.Message matching
-	// CatalogEntry.OutputProtoType. The runner uses this to decide whether
-	// a response-shaped wrapping is expected (v0.2+; today all parsers return
-	// the canonical ExecuteResponse so this returns nil).
-	OutputMessage() proto.Message
 }
 
 var (

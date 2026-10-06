@@ -56,8 +56,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 // httpxResult is the subset of httpx's -json output we consume. httpx emits
 // many more fields; we decode only what feeds taxonomy nodes and preserve
 // the rest in stdout for operators who want to inspect raw output.

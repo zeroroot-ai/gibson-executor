@@ -22,7 +22,7 @@
 //     output, so it needs its own ceiling; limiting only the children misses
 //     the process that actually holds the memory.
 //
-//  4. Output cap (CappedBuffer / LimitReader): stdout and stderr are bounded
+//  4. Output cap (CappedBuffer): stdout and stderr are bounded
 //     at OutputCapBytes per stream.  CappedBuffer keeps accepting writes past
 //     the cap but discards the overflow, so the tool never blocks on a full
 //     pipe; Err() reports afterwards whether the cap was hit.
@@ -49,7 +49,6 @@ package sandbox
 import (
 	"bytes"
 	"errors"
-	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -82,7 +81,7 @@ const (
 	goRuntimeReserveBytes = 1536 * 1024 * 1024 // 1.5 GiB
 )
 
-// ErrOutputCapExceeded is returned by a LimitReader when the byte cap is hit.
+// ErrOutputCapExceeded is what CappedBuffer.Err returns when the byte cap was hit.
 var ErrOutputCapExceeded = errors.New("sandbox: output cap exceeded")
 
 // Config holds the resource limits applied to the runner and to each child.
@@ -193,31 +192,6 @@ func ApplySelf(cfg Config) error {
 	return applySelfMemoryLimit(cfg.SelfMemoryBytes)
 }
 
-// LimitReader wraps r so that at most limit bytes may be read in total.
-// When the cap is exceeded the next Read returns (0, ErrOutputCapExceeded).
-// Partial reads that exhaust the remaining quota return the bytes up to the
-// cap and then ErrOutputCapExceeded on the following call.
-func LimitReader(r io.Reader, limit int64) io.Reader {
-	return &limitedReader{r: r, n: limit}
-}
-
-type limitedReader struct {
-	r io.Reader
-	n int64
-}
-
-func (l *limitedReader) Read(p []byte) (int, error) {
-	if l.n <= 0 {
-		return 0, ErrOutputCapExceeded
-	}
-	if int64(len(p)) > l.n {
-		p = p[:l.n]
-	}
-	n, err := l.r.Read(p)
-	l.n -= int64(n)
-	return n, err
-}
-
 // CappedBuffer is a drop-in replacement for bytes.Buffer that is safe to use
 // as cmd.Stdout / cmd.Stderr.  It accepts writes up to Cap bytes; the first
 // write that would exceed the cap is truncated and the overflow is silently
@@ -236,14 +210,12 @@ func (l *limitedReader) Read(p []byte) (int, error) {
 // always applies one.
 type CappedBuffer struct {
 	buf bytes.Buffer
-	cap int64
 	rem int64
 	hit bool
 }
 
 // Init sets the byte cap.  Must be called before the first write.
 func (c *CappedBuffer) Init(cap int64) {
-	c.cap = cap
 	c.rem = cap
 }
 

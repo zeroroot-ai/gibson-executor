@@ -6,10 +6,8 @@
 package sandbox_test
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,85 +64,6 @@ func runSelfLimitHelper(v string) int {
 	}
 	fmt.Printf("cur=%d hard=%d\n", got.Cur, got.Max)
 	return 0
-}
-
-// TestLimitReader_UnderCap verifies that reads below the cap succeed normally.
-func TestLimitReader_UnderCap(t *testing.T) {
-	t.Parallel()
-	src := bytes.NewReader([]byte("hello"))
-	lr := sandbox.LimitReader(src, 100)
-	got, err := io.ReadAll(lr)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if string(got) != "hello" {
-		t.Fatalf("got %q, want %q", got, "hello")
-	}
-}
-
-// TestLimitReader_ExactCap verifies that reading exactly cap bytes returns the
-// data correctly; a subsequent Read returns ErrOutputCapExceeded because the
-// cap is exhausted.  When using io.ReadAll, it will call Read one extra time
-// after the cap is hit and receive ErrOutputCapExceeded — the data accumulated
-// so far is still available via the partial read.
-func TestLimitReader_ExactCap(t *testing.T) {
-	t.Parallel()
-	data := []byte("abcde")
-	src := bytes.NewReader(data)
-	lr := sandbox.LimitReader(src, int64(len(data)))
-
-	// Read manually to control buffer size and avoid the extra-call behaviour
-	// of io.ReadAll.
-	buf := make([]byte, 10)
-	n, err := lr.Read(buf)
-	if err != nil {
-		t.Fatalf("first Read returned unexpected error: %v (n=%d)", err, n)
-	}
-	if string(buf[:n]) != "abcde" {
-		t.Fatalf("first Read: got %q, want %q", buf[:n], "abcde")
-	}
-
-	// Cap is now exactly zero; next Read must return ErrOutputCapExceeded.
-	n2, err2 := lr.Read(buf)
-	if !errors.Is(err2, sandbox.ErrOutputCapExceeded) {
-		t.Fatalf("expected ErrOutputCapExceeded after cap, got err=%v n=%d", err2, n2)
-	}
-}
-
-// TestLimitReader_OverCap verifies that a LimitReader raises
-// ErrOutputCapExceeded when more than cap bytes are read from a byte source.
-// We use a simple in-process reader rather than a subprocess to avoid
-// pipe-drain deadlocks.
-func TestLimitReader_OverCap(t *testing.T) {
-	t.Parallel()
-
-	const capBytes = 512
-	// Produce 1024 bytes — twice the cap.
-	data := make([]byte, 1024)
-	src := bytes.NewReader(data)
-	lr := sandbox.LimitReader(src, capBytes)
-
-	buf := make([]byte, 128)
-	var totalRead int
-	var hitCap bool
-	for {
-		n, err := lr.Read(buf)
-		totalRead += n
-		if errors.Is(err, sandbox.ErrOutputCapExceeded) {
-			hitCap = true
-			break
-		}
-		if err != nil {
-			t.Fatalf("unexpected error after %d bytes: %v", totalRead, err)
-		}
-	}
-
-	if !hitCap {
-		t.Fatalf("expected ErrOutputCapExceeded after %d bytes, never got it", totalRead)
-	}
-	if totalRead > capBytes {
-		t.Fatalf("read %d bytes past cap of %d", totalRead, capBytes)
-	}
 }
 
 // TestCappedBuffer_UnderCap verifies that writes below cap succeed.

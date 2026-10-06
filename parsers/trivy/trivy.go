@@ -100,8 +100,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 // report is the subset of `trivy image -f json` this parser reads.
 type report struct {
 	ArtifactName string `json:"ArtifactName"`

@@ -79,8 +79,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 // response is the subset of tlsx's JSON line this parser reads. Field names
 // are taken from tlsx's own clients.Response, whose CertificateResponse is
 // inlined — so the certificate fields sit at the top level here too.

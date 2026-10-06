@@ -6,9 +6,8 @@
 # This file only shrinks. Adding an entry means accepting a declaration
 # nothing reads, so put the reason on a # line above it.
 #
-# measured 2026-10-02: 30 of 238 declarations across 34 packages and 59 files
+# measured 2026-10-06: 14 of 223 declarations across 35 packages and 62 files
 
-const registry.ParseQualityUnspecified	# internal/registry/registry.go:48
 field readiness.probeResult.Error	# internal/readiness/readiness.go:27
 field readiness.probeResult.Name	# internal/readiness/readiness.go:25
 field readiness.probeResult.Status	# internal/readiness/readiness.go:26
@@ -20,29 +19,14 @@ field readiness.readyzResponse.Status	# internal/readiness/readiness.go:31
 # and reflection reads it, so there is no per-declaration read to find.
 # Deleting any of them would silently drop a column from the daemon's catalog.
 # Verified 2026-10-02 (gibson-executor#89): cmd/gibson-runner/main.go:134.
-field registry.CatalogEntry.DefaultParseQuality	# internal/registry/registry.go:65
-field registry.CatalogEntry.Description	# internal/registry/registry.go:61
-field registry.CatalogEntry.InputSchema	# internal/registry/registry.go:63
-field registry.CatalogEntry.OutputProtoType	# internal/registry/registry.go:64
-field registry.CatalogEntry.Resources	# internal/registry/registry.go:66
-field registry.CatalogEntry.Tags	# internal/registry/registry.go:62
-field registry.CatalogEntry.Version	# internal/registry/registry.go:60
+field registry.CatalogEntry.DefaultParseQuality	# internal/registry/registry.go:64
+field registry.CatalogEntry.Description	# internal/registry/registry.go:60
+field registry.CatalogEntry.InputSchema	# internal/registry/registry.go:62
+field registry.CatalogEntry.OutputProtoType	# internal/registry/registry.go:63
+field registry.CatalogEntry.Resources	# internal/registry/registry.go:65
+field registry.CatalogEntry.Tags	# internal/registry/registry.go:61
+field registry.CatalogEntry.Version	# internal/registry/registry.go:59
 # ResourceHint is CatalogEntry.Resources, so the same marshaller reads it.
-field registry.ResourceHint.Memory	# internal/registry/registry.go:74
-field registry.ResourceHint.VCPU	# internal/registry/registry.go:73
-func policy.PathUnder	# internal/policy/policy.go:360
-func sandbox.LimitReader	# internal/sandbox/sandbox.go:200
-method dnsx.parser.OutputMessage	# parsers/dnsx/dnsx.go:47
-method httpx.parser.OutputMessage	# parsers/httpx/httpx.go:59
-method kubebench.parser.OutputMessage	# parsers/kubebench/kubebench.go:141
-method masscan.parser.OutputMessage	# parsers/masscan/masscan.go:48
-method naabu.parser.OutputMessage	# parsers/naabu/naabu.go:47
-method nmap.parser.OutputMessage	# parsers/nmap/nmap.go:67
-method nuclei.parser.OutputMessage	# parsers/nuclei/nuclei.go:59
-method policy.OpenPolicy.DeniedFlags	# internal/policy/deny.go:129
-method sandbox.CappedBuffer.Write	# internal/sandbox/sandbox.go:252
-method sandbox.limitedReader.Read	# internal/sandbox/sandbox.go:209
-method subfinder.parser.OutputMessage	# parsers/subfinder/subfinder.go:54
-method tlsx.parser.OutputMessage	# parsers/tlsx/tlsx.go:82
-method trivy.parser.OutputMessage	# parsers/trivy/trivy.go:103
-method trivyk8s.parser.OutputMessage	# parsers/trivyk8s/trivyk8s.go:140
+field registry.ResourceHint.Memory	# internal/registry/registry.go:73
+field registry.ResourceHint.VCPU	# internal/registry/registry.go:72
+method sandbox.CappedBuffer.Write	# internal/sandbox/sandbox.go:224

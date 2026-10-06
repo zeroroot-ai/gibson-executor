@@ -151,8 +151,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 // severities is the whole mapping. trivy's Severity is already a tier, so the
 // map exists to lowercase it and to refuse a value this package has not seen.
 //

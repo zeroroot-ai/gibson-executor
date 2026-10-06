@@ -56,8 +56,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 // nucleiEvent is the subset of nuclei's -jsonl output we consume.
 //
 // Every field here has to reach the emitted DiscoveryResult. Six of them were

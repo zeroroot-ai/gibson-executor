@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.114.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.113.0...v0.114.0) (2026-10-07)
+
+
+### Features
+
+* end-phase integration of gibson-executor ([#141](https://github.com/zeroroot-ai/gibson-executor/issues/141)) ([f29c14f](https://github.com/zeroroot-ai/gibson-executor/commit/f29c14f1ab63ef22b5986ba76e9fc80f5f6838d3))
+
 ## [0.113.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.112.0...v0.113.0) (2026-10-04)
 
 

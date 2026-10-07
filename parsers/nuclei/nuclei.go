@@ -86,7 +86,6 @@ type nucleiInfo struct {
 type nucleiClassification struct {
 	CveID       []string `json:"cve-id"`
 	CweID       []string `json:"cwe-id"`
-	CvssScore   float64  `json:"cvss-score"`
 	CvssMetrics string   `json:"cvss-metrics"`
 }
 

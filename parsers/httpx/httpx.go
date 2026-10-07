@@ -60,16 +60,15 @@ func (p *parser) Describe() registry.CatalogEntry {
 // many more fields; we decode only what feeds taxonomy nodes and preserve
 // the rest in stdout for operators who want to inspect raw output.
 type httpxResult struct {
-	URL           string   `json:"url"`
-	Host          string   `json:"host"`
-	StatusCode    int      `json:"status_code"`
-	ContentType   string   `json:"content_type"`
-	ContentLength int64    `json:"content_length"`
-	Title         string   `json:"title"`
-	WebServer     string   `json:"webserver"`
-	Tech          []string `json:"tech"`
-	Scheme        string   `json:"scheme"`
-	Method        string   `json:"method"`
+	URL         string   `json:"url"`
+	Host        string   `json:"host"`
+	StatusCode  int      `json:"status_code"`
+	ContentType string   `json:"content_type"`
+	Title       string   `json:"title"`
+	WebServer   string   `json:"webserver"`
+	Tech        []string `json:"tech"`
+	Scheme      string   `json:"scheme"`
+	Method      string   `json:"method"`
 
 	// Response headers, present because buildArgs always passes -irh.
 	// httpx normalises each key to lowercase with "-" replaced by "_"

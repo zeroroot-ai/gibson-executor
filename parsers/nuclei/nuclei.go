@@ -226,22 +226,15 @@ func appendFinding(disc *graphragpb.DiscoveryResult, ev nucleiEvent) {
 	if ev.Info.Remediation != "" {
 		f.Remediation = proto.String(ev.Info.Remediation)
 	}
-	if ev.Info.Classification.CvssScore > 0 {
-		cs := ev.Info.Classification.CvssScore
-		f.CvssScore = &cs
-	}
 	if len(ev.Info.Classification.CveID) > 0 {
 		f.CveIds = proto.String(strings.Join(ev.Info.Classification.CveID, ","))
 	}
 	if len(ev.Info.Tags) > 0 {
 		f.Category = proto.String(strings.Join(ev.Info.Tags, ","))
 	}
-	// The host nuclei matched on is the finding's parent. ParentType is one of
-	// the documented values ("service", "endpoint", "host", "technology"); a
-	// nuclei `host` is the scanned host.
+	// The host nuclei matched on is the finding's parent.
 	if ev.Host != "" {
 		f.ParentId = proto.String(ev.Host)
-		f.ParentType = proto.String("host")
 	}
 	disc.Findings = append(disc.Findings, f)
 	appendEvidence(disc, findingID, ev)

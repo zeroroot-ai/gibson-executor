@@ -177,9 +177,6 @@ func TestHighSeverityFindingNamesARealWorkload(t *testing.T) {
 		if !strings.Contains(f.GetDescription(), apiRef) {
 			t.Errorf("finding %s does not name the workload in its description: %q", f.GetTitle(), f.GetDescription())
 		}
-		if f.GetParentType() != nodeWorkload {
-			t.Errorf("finding %s parent type = %q, want %q", f.GetTitle(), f.GetParentType(), nodeWorkload)
-		}
 	}
 	t.Logf("%d high or critical findings", len(high))
 }

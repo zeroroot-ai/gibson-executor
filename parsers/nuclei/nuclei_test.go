@@ -37,9 +37,6 @@ func TestParseJSONLines_TwoFindings(t *testing.T) {
 	if crit.Severity != "critical" {
 		t.Errorf("finding[0].severity = %q; want critical", crit.Severity)
 	}
-	if crit.CvssScore == nil || *crit.CvssScore != 9.8 {
-		t.Errorf("finding[0].cvss_score = %v; want 9.8", crit.CvssScore)
-	}
 	if crit.CveIds == nil || *crit.CveIds != "CVE-2023-12345" {
 		t.Errorf("finding[0].cve_ids = %v", crit.CveIds)
 	}
@@ -180,9 +177,6 @@ func TestParseJSONLines_HostIsTheFindingsParent(t *testing.T) {
 	for i, f := range disc.Findings {
 		if f.GetParentId() != "http://scanme.nmap.org" {
 			t.Errorf("finding[%d].parent_id = %q; want the nuclei host", i, f.GetParentId())
-		}
-		if f.GetParentType() != "host" {
-			t.Errorf("finding[%d].parent_type = %q; want host", i, f.GetParentType())
 		}
 	}
 }

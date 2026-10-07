@@ -86,8 +86,6 @@ func (f *fakeParser) Execute(_ context.Context, _ registry.ExecuteRequest) (*reg
 	return f.result, f.err
 }
 
-func (f *fakeParser) OutputMessage() proto.Message { return nil }
-
 // TestDispatch_SuccessPath verifies that a successful Execute round-trips
 // through emitResponse and produces a valid ABI marker line.
 func TestDispatch_SuccessPath(t *testing.T) {

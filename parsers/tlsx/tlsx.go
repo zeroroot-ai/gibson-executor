@@ -79,8 +79,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 // response is the subset of tlsx's JSON line this parser reads. Field names
 // are taken from tlsx's own clients.Response, whose CertificateResponse is
 // inlined — so the certificate fields sit at the top level here too.
@@ -230,7 +228,6 @@ func addFinding(disc *graphragpb.DiscoveryResult, ep, kind, severity, title, des
 		Severity:    severity,
 		Description: proto.String(description),
 		Category:    proto.String("tls-configuration"),
-		ParentType:  proto.String("service"),
 		ParentId:    proto.String(ep),
 	}
 	disc.Findings = append(disc.Findings, f)

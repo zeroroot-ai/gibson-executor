@@ -151,8 +151,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 // severities is the whole mapping. trivy's Severity is already a tier, so the
 // map exists to lowercase it and to refuse a value this package has not seen.
 //
@@ -591,7 +589,6 @@ func buildFinding(id, ref, severity string, m misconf) *graphragpb.Finding {
 		Description: proto.String(truncate(desc, 1200)),
 		Severity:    severity,
 		Category:    proto.String(categoryMisconfig),
-		ParentType:  proto.String(nodeWorkload),
 		ParentId:    proto.String(ref),
 	}
 	if rem := strings.TrimSpace(m.Resolution); rem != "" {

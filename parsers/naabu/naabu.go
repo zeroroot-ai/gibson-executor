@@ -14,7 +14,6 @@ import (
 	"os/exec"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
 	"github.com/zeroroot-ai/gibson-executor/internal/sandbox"
@@ -43,8 +42,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 		DefaultTimeoutSeconds: defaultTimeout,
 	}
 }
-
-func (p *parser) OutputMessage() proto.Message { return nil }
 
 type naabuRecord struct {
 	Host string `json:"host"`

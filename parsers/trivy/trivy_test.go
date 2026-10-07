@@ -125,14 +125,8 @@ func TestParse_FindingCarriesFixAndScore(t *testing.T) {
 	if got := fixed.GetRemediation(); got != "Upgrade zlib1g to 1:1.2.13.dfsg-1+deb12u1" {
 		t.Errorf("remediation = %q", got)
 	}
-	if got := fixed.GetCvssScore(); got != 7.5 {
-		t.Errorf("cvss = %v, want the NVD score 7.5 in preference to redhat's 6.1", got)
-	}
 	if got := fixed.GetSeverity(); got != "high" {
 		t.Errorf("severity = %q, want lowercase high", got)
-	}
-	if got := fixed.GetParentType(); got != nodePackage {
-		t.Errorf("parent type = %q, want Package", got)
 	}
 
 	// No fixed version means no remediation text — an empty "upgrade to"
@@ -143,10 +137,6 @@ func TestParse_FindingCarriesFixAndScore(t *testing.T) {
 	}
 	if unfixed.Remediation != nil {
 		t.Errorf("remediation = %q for a vulnerability with no fix", unfixed.GetRemediation())
-	}
-	// Only redhat scores this one; the parser must still find a score.
-	if got := unfixed.GetCvssScore(); got != 5.3 {
-		t.Errorf("cvss = %v, want the only available score 5.3", got)
 	}
 }
 

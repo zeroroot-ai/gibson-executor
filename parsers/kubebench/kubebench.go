@@ -151,8 +151,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 var benchmarkRe = regexp.MustCompile(`^cis-\d+\.\d+$`)
 
 // config is the validated input.
@@ -645,7 +643,6 @@ func buildFinding(runID, benchmark, detected string, c check) *graphragpb.Findin
 		Description: proto.String(desc),
 		Severity:    sev,
 		Category:    proto.String(categoryCIS),
-		ParentType:  proto.String(nodeRun),
 		ParentId:    proto.String(runID),
 	}
 	if rem := strings.TrimSpace(c.Remediation); rem != "" {

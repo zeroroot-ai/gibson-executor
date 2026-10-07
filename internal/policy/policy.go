@@ -350,26 +350,3 @@ func Numeric(value string) error {
 	}
 	return nil
 }
-
-// PathUnder returns a Validator that requires the value to be a clean
-// path below the supplied prefix. The prefix is typically the
-// tool-runner's per-invocation tempdir, set by the runner harness in
-// req.Options. Use for output-file flags (`-oN`, `-oX`, `-output`,
-// `--templates`) so callers can never coerce a write or read outside
-// the tempdir.
-func PathUnder(prefix string) Validator {
-	return func(value string) error {
-		if value == "" {
-			return fmt.Errorf("path must be non-empty")
-		}
-		// Reject path-traversal attempts and absolute paths that aren't
-		// under the prefix.
-		if strings.Contains(value, "..") {
-			return fmt.Errorf("path %q contains '..' traversal", value)
-		}
-		if !strings.HasPrefix(value, prefix) {
-			return fmt.Errorf("path %q is not under tempdir %q", value, prefix)
-		}
-		return nil
-	}
-}

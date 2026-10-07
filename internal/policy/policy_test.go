@@ -83,36 +83,6 @@ func TestApplyArgs_StrayPositional_Dropped(t *testing.T) {
 	}
 }
 
-func TestApplyArgs_PathUnder_RejectsTraversal(t *testing.T) {
-	policy := ArgsPolicy{"-oN": PathUnder("/runner/tmp/")}
-	_, _, err := ApplyArgs([]string{"-oN", "/runner/tmp/../etc/passwd"}, policy)
-	if err == nil {
-		t.Fatal("expected traversal rejection")
-	}
-}
-
-func TestApplyArgs_PathUnder_RejectsOutsidePrefix(t *testing.T) {
-	policy := ArgsPolicy{"-oN": PathUnder("/runner/tmp/")}
-	_, _, err := ApplyArgs([]string{"-oN", "/etc/passwd"}, policy)
-	if err == nil {
-		t.Fatal("expected outside-prefix rejection")
-	}
-}
-
-func TestApplyArgs_PathUnder_AllowsWithinPrefix(t *testing.T) {
-	policy := ArgsPolicy{"-oN": PathUnder("/runner/tmp/")}
-	out, dropped, err := ApplyArgs([]string{"-oN", "/runner/tmp/output.txt"}, policy)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(dropped) != 0 {
-		t.Fatalf("expected 0 dropped, got %v", dropped)
-	}
-	if len(out) != 2 || out[0] != "-oN" || out[1] != "/runner/tmp/output.txt" {
-		t.Fatalf("expected -oN /runner/tmp/output.txt, got %v", out)
-	}
-}
-
 func TestAllowEnum_Behavior(t *testing.T) {
 	v := AllowEnum("alpha", "beta")
 	if err := v("alpha"); err != nil {

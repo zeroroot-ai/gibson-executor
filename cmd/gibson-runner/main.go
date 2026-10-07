@@ -85,7 +85,6 @@ const (
 	// serviceName is the OTel service.name attribute for this binary.
 	serviceName = "gibson-executor"
 
-	exitOK                = 0
 	exitInputParse        = 1
 	exitExecuteError      = 2
 	exitOutputMarshal     = 3

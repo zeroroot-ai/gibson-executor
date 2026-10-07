@@ -56,22 +56,19 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 // httpxResult is the subset of httpx's -json output we consume. httpx emits
 // many more fields; we decode only what feeds taxonomy nodes and preserve
 // the rest in stdout for operators who want to inspect raw output.
 type httpxResult struct {
-	URL           string   `json:"url"`
-	Host          string   `json:"host"`
-	StatusCode    int      `json:"status_code"`
-	ContentType   string   `json:"content_type"`
-	ContentLength int64    `json:"content_length"`
-	Title         string   `json:"title"`
-	WebServer     string   `json:"webserver"`
-	Tech          []string `json:"tech"`
-	Scheme        string   `json:"scheme"`
-	Method        string   `json:"method"`
+	URL         string   `json:"url"`
+	Host        string   `json:"host"`
+	StatusCode  int      `json:"status_code"`
+	ContentType string   `json:"content_type"`
+	Title       string   `json:"title"`
+	WebServer   string   `json:"webserver"`
+	Tech        []string `json:"tech"`
+	Scheme      string   `json:"scheme"`
+	Method      string   `json:"method"`
 
 	// Response headers, present because buildArgs always passes -irh.
 	// httpx normalises each key to lowercase with "-" replaced by "_"
@@ -264,10 +261,6 @@ func appendProbe(disc *graphragpb.DiscoveryResult, r httpxResult) {
 		ct := r.ContentType
 		ep.ContentType = &ct
 	}
-	if r.ContentLength > 0 {
-		cl := r.ContentLength
-		ep.ContentLength = &cl
-	}
 	if r.Title != "" {
 		t := r.Title
 		ep.Title = &t
@@ -280,13 +273,11 @@ func appendProbe(disc *graphragpb.DiscoveryResult, r httpxResult) {
 			continue
 		}
 		parent := epID
-		parentType := "endpoint"
 		techID := fmt.Sprintf("tech:%s:%s", r.URL, t)
 		disc.Technologies = append(disc.Technologies, &graphragpb.Technology{
-			Id:         &techID,
-			Name:       t,
-			ParentId:   &parent,
-			ParentType: &parentType,
+			Id:       &techID,
+			Name:     t,
+			ParentId: &parent,
 		})
 	}
 }
@@ -418,7 +409,6 @@ func addHeaderFinding(disc *graphragpb.DiscoveryResult, target, kind, severity, 
 		Severity:    severity,
 		Description: proto.String(fmt.Sprintf("%s %s", target, why)),
 		Category:    proto.String("security-header"),
-		ParentType:  proto.String("endpoint"),
 		ParentId:    proto.String(target),
 	})
 }

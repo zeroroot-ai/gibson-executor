@@ -28,7 +28,6 @@ package policy
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -123,16 +122,6 @@ func (o OpenPolicy) namesToken(tok string) bool {
 	}
 	flag, _, _ := splitInline(tok, o.known, true)
 	return o.known(flag)
-}
-
-// DeniedFlags lists the refused flags in sorted order, for tests and docs.
-func (o OpenPolicy) DeniedFlags() []string {
-	out := make([]string, 0, len(o.Denied))
-	for f := range o.Denied {
-		out = append(out, f)
-	}
-	sort.Strings(out)
-	return out
 }
 
 // ApplyOpen is ApplyArgs for the inverted posture. It shares the paired-value

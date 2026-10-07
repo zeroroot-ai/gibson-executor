@@ -18,7 +18,6 @@ import (
 
 	nmaplib "github.com/Ullaakut/nmap/v3"
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
 	"github.com/zeroroot-ai/gibson-executor/internal/sandbox"
@@ -61,10 +60,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 		DefaultTimeoutSeconds: defaultTimeout,
 	}
 }
-
-// OutputMessage returns nil — v0.1 parsers fill registry.ExecuteResponse
-// directly rather than a tool-specific proto.
-func (p *parser) OutputMessage() proto.Message { return nil }
 
 // buildArgs composes the nmap argv from the request. Always prepends -oX -
 // for XML-on-stdout so parseXML can consume it.

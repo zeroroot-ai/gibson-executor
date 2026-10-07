@@ -151,8 +151,6 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-func (p *parser) OutputMessage() proto.Message { return nil }
-
 var benchmarkRe = regexp.MustCompile(`^cis-\d+\.\d+$`)
 
 // config is the validated input.

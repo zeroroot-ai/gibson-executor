@@ -130,7 +130,8 @@ dropped as a stray positional rather than riding onto the argv.
    documentation (one map entry per flag), with the appropriate
    validator. Use `policy.AllowAny` only when the value's shape is
    policed by the tool itself; prefer `policy.AllowEnum(...)` for
-   bounded sets and `policy.PathUnder(prefix)` for any path argument.
+   bounded sets. Do not allow a path argument (see "Output-file flag
+   policy" below).
 3. In the same `policy.go`, declare the target syntaxes the tool
    documents:
    ```go
@@ -180,9 +181,9 @@ is allowed under happy-path inputs.
 
 Output-file flags are the most common attack surface. Each tool's
 `policy.go` enumerates every output flag and **does not** include them
-in the allowlist. If a future feature legitimately needs a tool to write
-to a path the caller controls, the validator must be `policy.PathUnder`
-constrained to a runner-managed tempdir — never a free-form path.
+in the allowlist. If a future feature needs a tool to write to a path
+that the caller controls, add a validator that keeps the path in a
+runner-managed tempdir. A free-form path is never allowed.
 
 ## Process sandbox (`internal/sandbox`)
 

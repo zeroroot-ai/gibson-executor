@@ -6,9 +6,8 @@
 // Coverage rationale:
 //   - Record-type selectors are safe.
 //   - Output flags (`-o`, `-output`) DENIED — runner reads JSON on stdout.
-//   - Resolver-list (`-r`) DENIED unless paired with PathUnder validator;
-//     allowing arbitrary resolver lists could exfiltrate via DNS to a
-//     caller-controlled server. Today no caller needs to override the
+//   - Resolver-list (`-r`) DENIED: allowing arbitrary resolver lists
+//     could exfiltrate via DNS to a caller-controlled server. Today no caller needs to override the
 //     default resolvers, so this is left out of the allowlist.
 package dnsx
 

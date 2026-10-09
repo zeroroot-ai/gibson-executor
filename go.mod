@@ -1,6 +1,6 @@
 module github.com/zeroroot-ai/gibson-executor
 
-go 1.27.1
+go 1.27.2
 
 // v1.0.0 was published in error by an early release-please run (2026-05-10),
 // long before the current 0.10x line and with no pre-1.0 sign-off. It hijacks
@@ -32,7 +32,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

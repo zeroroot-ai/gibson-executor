@@ -6,27 +6,5 @@
 # This file only shrinks. Adding an entry means accepting a declaration
 # nothing reads, so put the reason on a # line above it.
 #
-# measured 2026-10-06: 14 of 223 declarations across 35 packages and 62 files
+# measured 2026-10-09: 0 of 221 declarations across 35 packages and 62 files
 
-field readiness.probeResult.Error	# internal/readiness/readiness.go:27
-field readiness.probeResult.Name	# internal/readiness/readiness.go:25
-field readiness.probeResult.Status	# internal/readiness/readiness.go:26
-field readiness.readyzResponse.Status	# internal/readiness/readiness.go:31
-# CatalogEntry's fields ARE read, by a marshaller unwired cannot see.
-# `gibson-runner --list-tools` does json.NewEncoder(os.Stdout).Encode(
-# registry.Catalog()), and the Gibson daemon's catalog refresher ingests that
-# array to populate ComponentRegistry entries. Every field carries a json tag
-# and reflection reads it, so there is no per-declaration read to find.
-# Deleting any of them would silently drop a column from the daemon's catalog.
-# Verified 2026-10-02 (gibson-executor#89): cmd/gibson-runner/main.go:134.
-field registry.CatalogEntry.DefaultParseQuality	# internal/registry/registry.go:64
-field registry.CatalogEntry.Description	# internal/registry/registry.go:60
-field registry.CatalogEntry.InputSchema	# internal/registry/registry.go:62
-field registry.CatalogEntry.OutputProtoType	# internal/registry/registry.go:63
-field registry.CatalogEntry.Resources	# internal/registry/registry.go:65
-field registry.CatalogEntry.Tags	# internal/registry/registry.go:61
-field registry.CatalogEntry.Version	# internal/registry/registry.go:59
-# ResourceHint is CatalogEntry.Resources, so the same marshaller reads it.
-field registry.ResourceHint.Memory	# internal/registry/registry.go:73
-field registry.ResourceHint.VCPU	# internal/registry/registry.go:72
-method sandbox.CappedBuffer.Write	# internal/sandbox/sandbox.go:224

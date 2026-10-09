@@ -20,7 +20,7 @@ IMAGE   ?= ghcr.io/zeroroot-ai/gibson-executor:dev
 
 # ast-checks ships the per-declaration read counter behind #90. Pinned, because
 # a floating version would change the count without a commit.
-UNWIRED_VERSION ?= v0.5.0
+UNWIRED_VERSION ?= v0.9.0
 
 .PHONY: help
 help: ## List targets.

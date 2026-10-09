@@ -11,7 +11,7 @@ require (
 	github.com/projectdiscovery/tlsx v1.4.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/mod v0.41.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	golang.org/x/text v0.42.0
 )
 

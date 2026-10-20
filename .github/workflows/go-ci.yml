@@ -80,7 +80,7 @@ name: go-ci
 # it, so `policy-guards / vault-auth-method-deny-list` still reports under
 # exactly that name and no ruleset entry breaks.
 #
-# CodeQL stays in codeql.yml: it carries a weekly `schedule` cadence of its
+# CodeQL stays in codeql.yml: it has triggers of its
 # own, and folding it in would drag the whole Go suite along with it.
 #
 # GOVULNCHECK: the old (now-deleted) security.yaml ran a plain

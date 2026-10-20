@@ -7,14 +7,12 @@ name: CodeQL
 #
 # The scan runs on a push to main, not on merge_group. codeql-action uploads
 # the result against github.ref, and GitHub deletes the merge-queue ref before
-# the analysis ends (#345). The weekly schedule is the deep scan.
+# the analysis ends (#345).
 #
 # The check name is `CodeQL / CodeQL (go)`. No ruleset requires it.
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: "0 8 * * 2"
   workflow_dispatch:
 
 permissions:

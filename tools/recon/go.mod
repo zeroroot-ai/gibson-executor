@@ -8,7 +8,7 @@ require (
 	github.com/projectdiscovery/naabu/v2 v2.6.1
 	github.com/projectdiscovery/nuclei/v3 v3.11.1
 	github.com/projectdiscovery/subfinder/v2 v2.17.0
-	github.com/projectdiscovery/tlsx v1.4.1
+	github.com/projectdiscovery/tlsx v1.4.2
 	golang.org/x/crypto v0.58.0
 	golang.org/x/mod v0.42.0
 	golang.org/x/net v0.61.0

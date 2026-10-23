@@ -162,7 +162,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 #
 # TRIVY_VERSION is asserted against tools/trivy/go.mod so the two cannot drift:
 # bump both in one commit.
-ARG TRIVY_VERSION=0.75.0
+ARG TRIVY_VERSION=0.76.0
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     set -eux; \

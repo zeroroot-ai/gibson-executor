@@ -113,7 +113,7 @@ jobs:
   # ---- fast tier (pull_request): reusable mod-tidy/vet/build/test ----
   fast:
     if: github.event_name == 'pull_request'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@9e8c9f5b6f1ff36c0dd7cefe24fcf739c95b2055 # v0.21.2
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@a88e99f641209c147aad6cbd3b6d62c2764485ca # v0.21.3
     with:
       tier: fast
       skip-lint: true # gibson-executor runs its own pinned golangci-lint below (make lint)
@@ -121,7 +121,7 @@ jobs:
   # ---- heavy tier (merge_group): reusable race + govulncheck ----
   heavy:
     if: github.event_name == 'merge_group'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@9e8c9f5b6f1ff36c0dd7cefe24fcf739c95b2055 # v0.21.2
+    uses: zeroroot-ai/.github/.github/workflows/reusable-go-ci.yml@a88e99f641209c147aad6cbd3b6d62c2764485ca # v0.21.3
     with:
       tier: heavy
 
@@ -296,7 +296,7 @@ jobs:
   # types apply now.
   policy-guards:
     name: policy-guards
-    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@9e8c9f5b6f1ff36c0dd7cefe24fcf739c95b2055 # v0.21.2
+    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@a88e99f641209c147aad6cbd3b6d62c2764485ca # v0.21.3
 
   # ---- the aggregator's own regression suite ----
   # ci-required is the one thing standing between a red gate and main, so its
@@ -360,4 +360,4 @@ jobs:
   # setec or ast-checks. That is the rule of this repo too, so the job keeps
   # the name the org workflow gives it.
   permissive-floor:
-    uses: zeroroot-ai/.github/.github/workflows/permissive-floor.yml@9e8c9f5b6f1ff36c0dd7cefe24fcf739c95b2055 # v0.21.2
+    uses: zeroroot-ai/.github/.github/workflows/permissive-floor.yml@a88e99f641209c147aad6cbd3b6d62c2764485ca # v0.21.3

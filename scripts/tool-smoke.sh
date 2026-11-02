@@ -105,7 +105,12 @@ CASES=(
   'naabu::{"target":"@IP@","ports":"@PORT@","args":["-s","c"]}::.ports | length::'
   'masscan::{"target":"@IP@","ports":"@PORT@","rate":"100"}::.ports | length::--cap-add NET_RAW --cap-add NET_ADMIN --user 0:0'
   'httpx::{"target":"http://@ALIAS@:@PORT@"}::[(.endpoints|length),(.findings|length)] | min::'
-  'nuclei::{"target":"http://@ALIAS@:@PORT@","templates":"smoke/http-title.yaml"}::.findings | length::-v @HERE@/tool-smoke/nuclei:/home/runner/smoke:ro'
+  # nuclei runs a template FROM THE SET BUNDLED IN THE IMAGE
+  # (gibson-executor#395): no -v mount and a path under the bundled tree, so the
+  # case fails if the image drops the templates or if -disable-update-check lets
+  # nuclei try to reach the network. robots-txt-endpoint fires on the robots.txt
+  # the target serves below, which turns the JSONL event into one Finding.
+  'nuclei::{"target":"http://@ALIAS@:@PORT@","templates":"http/miscellaneous/robots-txt-endpoint.yaml"}::.findings | length::'
   'subfinder::{"target":"@DOMAIN@"}::.subdomains | length::'
   'dnsx::{"target":"@ALIAS@","args":["-r","@DNS@"]}::.hosts | length::'
   'tlsx::{"target":"@TLSHOST@"}::.findings | length::'
@@ -188,6 +193,7 @@ docker run -d --name "$TARGET" --network "$NET" --network-alias "$TARGET_ALIAS" 
   "$TARGET_IMAGE" sh -c '
     mkdir -p /srv &&
     printf "<html><head><title>Gibson smoke target</title></head><body>ok</body></html>" > /srv/index.html &&
+    printf "User-agent: *\nDisallow: /private/\n" > /srv/robots.txt &&
     cd /srv && exec python3 -m http.server '"$TARGET_PORT" >/dev/null
 TARGET_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$TARGET")
 for _ in $(seq 1 30); do

@@ -140,6 +140,43 @@ RUN --mount=type=cache,target=/go/pkg/mod \
         fi; \
     done < /tmp/linked-deps
 
+# nuclei-templates — the detection content nuclei actually runs. The nuclei
+# binary is built above but ships no templates, and the runtime sandbox has no
+# network egress except to the dispatched target, so nuclei cannot download the
+# set on first run and aborts with "no templates provided for scan"
+# (gibson-executor#395). Clone a pinned set here, where build-time network IS
+# allowed, and COPY it into the runtime image below.
+#
+# Pinned the same way as everything else in this file: a tag AND the commit the
+# tag resolves to. `git clone --branch` follows a tag, and a tag is mutable, so
+# the build reads back the checked-out commit with `git rev-parse` and fails if
+# it is not NUCLEI_TEMPLATES_COMMIT — the same "fail the build, do not ship the
+# surprise" rule the trivy archive SHA check and the digest-pinned bases follow.
+# `.git` is removed after the check: the runtime image carries the YAML only.
+#
+# Size cost: the template set is ~84 MB of YAML (about 14,100 templates) and is
+# the largest single addition to the runtime image. It adds no packages, so it
+# adds no Trivy package-CVE surface, and the image stays curated for minimal
+# findings. The go-git reachability dismissal is updated in the same change
+# (docs/code-scanning-dismissals.md Entry 3): the set is local YAML, the runtime
+# stage sets NUCLEI_TEMPLATES_DIR to point at it, no config declares a remote
+# template repo, and the parser passes -disable-update-check, so the go-git
+# clone path stays unreachable from a mission spec.
+#
+# Bump procedure: change both ARGs together. Find the current commit with
+# `git ls-remote https://github.com/projectdiscovery/nuclei-templates.git refs/tags/v<version>`.
+ARG NUCLEI_TEMPLATES_VERSION=10.5.1
+ARG NUCLEI_TEMPLATES_COMMIT=79fb682760ab3d5b0e22afbb44709353cbebf023
+RUN set -eux; \
+    git clone --depth 1 --branch "v${NUCLEI_TEMPLATES_VERSION}" \
+        https://github.com/projectdiscovery/nuclei-templates.git /out/nuclei-templates; \
+    got="$(git -C /out/nuclei-templates rev-parse HEAD)"; \
+    if [ "$got" != "${NUCLEI_TEMPLATES_COMMIT}" ]; then \
+        echo "FAIL: nuclei-templates v${NUCLEI_TEMPLATES_VERSION} resolved to $got, not the pinned ${NUCLEI_TEMPLATES_COMMIT}" >&2; \
+        exit 1; \
+    fi; \
+    rm -rf /out/nuclei-templates/.git
+
 # trivy — built from source out of its own module, tools/trivy, for the same
 # reason the ProjectDiscovery tools are built out of tools/recon: the upstream
 # release archive links whatever trivy's own go.mod asks for. The case that
@@ -398,6 +435,18 @@ COPY --from=build /out/gibson-runner /usr/local/bin/gibson-runner
 RUN useradd --system --create-home --shell /usr/sbin/nologin runner
 USER runner:runner
 WORKDIR /home/runner
+
+# nuclei-templates — the pinned set cloned in the build stage, placed where the
+# runner user can read it and pointed at explicitly. NUCLEI_TEMPLATES_DIR is
+# nuclei's own env override for the scan template directory, so the path does
+# not depend on how the runtime resolves $HOME. HOME is set for the same
+# determinism: nuclei writes its config and ignore file under $HOME/.config.
+# parsers/nuclei passes -disable-update-check, so nuclei loads this set and
+# never tries to download or update it inside the egress-restricted sandbox.
+# Owned by runner so the unprivileged process can read every template.
+ENV HOME=/home/runner \
+    NUCLEI_TEMPLATES_DIR=/home/runner/nuclei-templates
+COPY --from=build --chown=runner:runner /out/nuclei-templates /home/runner/nuclei-templates
 
 # The license text travels with the distribution. Apache-2.0 §4(a) and MIT
 # both require the notice to reach every recipient, and a published image is

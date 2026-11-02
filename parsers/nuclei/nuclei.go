@@ -101,7 +101,13 @@ func buildArgs(req registry.ExecuteRequest) ([]string, error) {
 		return nil, fmt.Errorf("nuclei target: %w", err)
 	}
 
-	args := []string{"-jsonl", "-silent", "-target", req.Target}
+	// -disable-update-check stops nuclei from reaching the network to check
+	// for a binary or template update on startup. The runtime sandbox has no
+	// egress except to the target, so any update attempt fails and the whole
+	// run aborts before it loads the bundled templates (gibson-executor#395).
+	// With the check off, nuclei loads the pinned set the image ships at
+	// NUCLEI_TEMPLATES_DIR and runs fully offline.
+	args := []string{"-jsonl", "-silent", "-disable-update-check", "-target", req.Target}
 	if sev := req.Options["severity"]; sev != "" {
 		pair, err := registry.ApplyOption(toolName, "-severity", sev, nil)
 		if err != nil {

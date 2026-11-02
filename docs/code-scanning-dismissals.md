@@ -291,7 +291,7 @@ In this image:
   <target>` — plus allowlist-filtered options. Both doors into `-t` route
   through the same validator.
 - **The image ships a pinned local template set and no remote-repo config.**
-  Since gibson-executor#395 the image bundles the official nuclei-templates set
+  The image now bundles the official nuclei-templates set
   as local YAML at `/home/runner/nuclei-templates` (pinned by tag and commit in
   the Dockerfile), and `NUCLEI_TEMPLATES_DIR` points nuclei at it. That is
   detection content, not configuration: there is no config file — mounted or

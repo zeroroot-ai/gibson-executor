@@ -41,6 +41,31 @@ func TestBuildArgs_AcceptsValidTarget(t *testing.T) {
 	}
 }
 
+// TestBuildArgs_DisablesUpdateCheck pins that every nuclei invocation carries
+// -disable-update-check (gibson-executor#395). The runtime sandbox has no
+// egress except to the target, so without this flag nuclei tries to update its
+// binary and templates on startup, fails, and aborts before it loads the
+// bundled template set. The base shape -jsonl -silent -target stays intact.
+func TestBuildArgs_DisablesUpdateCheck(t *testing.T) {
+	args, err := buildArgs(registry.ExecuteRequest{Target: "https://example.com"})
+	if err != nil {
+		t.Fatalf("buildArgs rejected a valid target: %v", err)
+	}
+	has := func(flag string) bool {
+		for _, a := range args {
+			if a == flag {
+				return true
+			}
+		}
+		return false
+	}
+	for _, flag := range []string{"-disable-update-check", "-jsonl", "-silent", "-target"} {
+		if !has(flag) {
+			t.Errorf("buildArgs argv %v is missing %q", args, flag)
+		}
+	}
+}
+
 // TestBuildArgs_OptionCannotIntroduceAFlag pins that an option value is
 // held to the same standard as a req.Args value: it can never itself be a
 // flag, and it must satisfy the validator registered for that flag.

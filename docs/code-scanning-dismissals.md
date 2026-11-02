@@ -287,12 +287,18 @@ In this image:
   `[A-Za-z0-9/._,-]`), severity/tag/type filters, throughput controls, and a
   set of booleans. No repository flag appears in it.
 - **The runner never adds one.** `buildArgs` in `parsers/nuclei/nuclei.go`
-  composes a fixed base argv — `-jsonl -silent -target <target>` — plus
-  allowlist-filtered options. Both doors into `-t` route through the same
-  validator.
-- **The image ships no nuclei config and no template directory.** Verified in
-  the built image: no `~/.config`, no `~/nuclei-templates`. There is no
-  on-disk configuration that could enable a template repo.
+  composes a fixed base argv — `-jsonl -silent -disable-update-check -target
+  <target>` — plus allowlist-filtered options. Both doors into `-t` route
+  through the same validator.
+- **The image ships a pinned local template set and no remote-repo config.**
+  The image now bundles the official nuclei-templates set
+  as local YAML at `/home/runner/nuclei-templates` (pinned by tag and commit in
+  the Dockerfile), and `NUCLEI_TEMPLATES_DIR` points nuclei at it. That is
+  detection content, not configuration: there is no config file — mounted or
+  on disk — that declares a *remote* template repository, which is the only
+  thing that reaches the go-git fetch path. The base argv also carries
+  `-disable-update-check`, so nuclei never runs its template installer or
+  update check inside the sandbox.
 
 So the vulnerable code path cannot be entered from a mission spec. This is
 unreachability by allowlist, verified against the code, not an assumption from

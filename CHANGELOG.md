@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.114.1](https://github.com/zeroroot-ai/gibson-executor/compare/v0.114.0...v0.114.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **nuclei:** bundle pinned templates so scans load offline ([#175](https://github.com/zeroroot-ai/gibson-executor/issues/175)) ([8d5af58](https://github.com/zeroroot-ai/gibson-executor/commit/8d5af5861dc790fe7b506ab506b19a4b482e182a))
+
 ## [0.114.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.113.0...v0.114.0) (2026-10-07)
 
 

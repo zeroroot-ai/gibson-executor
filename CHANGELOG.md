@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.114.2](https://github.com/zeroroot-ai/gibson-executor/compare/v0.114.1...v0.114.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* clear fixable HIGH CVEs in nuclei and kubectl blocking image push ([#177](https://github.com/zeroroot-ai/gibson-executor/issues/177)) ([2a039e4](https://github.com/zeroroot-ai/gibson-executor/commit/2a039e49590ff9e5430bce3ad730828e15dec668))
+
 ## [0.114.1](https://github.com/zeroroot-ai/gibson-executor/compare/v0.114.0...v0.114.1) (2026-11-02)
 
 

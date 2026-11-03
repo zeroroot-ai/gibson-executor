@@ -8,6 +8,7 @@ updates:
     directories:
       - "/"
       - "/tools/kubebench"
+      - "/tools/kubectl"
       - "/tools/recon"
       - "/tools/trivy"
     schedule:

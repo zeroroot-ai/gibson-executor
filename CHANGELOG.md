@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.114.3](https://github.com/zeroroot-ai/gibson-executor/compare/v0.114.2...v0.114.3) (2026-11-03)
+
+
+### Bug Fixes
+
+* **image:** assert the go-jose v4.1.6 floor in the trivy and nuclei binaries ([#181](https://github.com/zeroroot-ai/gibson-executor/issues/181)) ([b14757f](https://github.com/zeroroot-ai/gibson-executor/commit/b14757fc8f16a36894d4b259451cc345a4d72023))
+
 ## [0.114.2](https://github.com/zeroroot-ai/gibson-executor/compare/v0.114.1...v0.114.2) (2026-11-03)
 
 

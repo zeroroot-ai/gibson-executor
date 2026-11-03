@@ -106,6 +106,11 @@ ARG TARGETARCH=amd64
 # -vulnerable line and MVS would happily take it, and the only place that shows
 # up is the shipped binary. Failing here beats finding it in a scan of a
 # published image.
+#
+# go-jose/v4 is a FLOOR here too, >= v4.1.6 for CVE-2026-116587. nuclei links it
+# through its own auth code. tools/recon/go.mod already requires v4.1.6 (#177),
+# but go.mod alone is the same trust the x/* floors reject, so the binary gets
+# the same linked check.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     set -eux; \
@@ -125,20 +130,22 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     for bin in /out/httpx /out/nuclei /out/subfinder /out/dnsx /out/naabu /out/tlsx; do \
         go version -m "$bin"; \
     done \
-    | awk '$1 == "dep" && $2 ~ /^golang\.org\/x\/(crypto|mod|net|text)$/ { print $2, $3 }' \
+    | awk '$1 == "dep" && $2 ~ /^(golang\.org\/x\/(crypto|mod|net|text)|github\.com\/go-jose\/go-jose\/v4)$/ { print $2, $3 }' \
     | sort -u > /tmp/linked-deps; \
     cat /tmp/linked-deps; \
     while read -r mod ver; do \
         case "$mod" in \
-            golang.org/x/crypto) floor=v0.56.0 ;; \
-            golang.org/x/mod)    floor=v0.40.0 ;; \
-            golang.org/x/net)    floor=v0.56.0 ;; \
-            golang.org/x/text)   floor=v0.39.0 ;; \
-            *)                   continue ;; \
+            golang.org/x/crypto)              floor=v0.56.0 ;; \
+            golang.org/x/mod)                 floor=v0.40.0 ;; \
+            golang.org/x/net)                 floor=v0.56.0 ;; \
+            golang.org/x/text)                floor=v0.39.0 ;; \
+            github.com/go-jose/go-jose/v4)    floor=v4.1.6  ;; \
+            *)                                continue ;; \
         esac; \
         lowest=$(printf '%s\n%s\n' "$floor" "$ver" | sort -V | head -1); \
         if [ "$lowest" != "$floor" ]; then \
             echo "FAIL: $mod linked at $ver, below the $floor security floor" >&2; \
+            echo "Raise the $mod requirement in tools/recon/go.mod." >&2; \
             exit 1; \
         fi; \
     done < /tmp/linked-deps
@@ -238,13 +245,20 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 #   re-pinned on every trivy bump that moved containerd, in either direction,
 #   whether or not security changed. A floor asserts the thing that matters and
 #   never needs re-pinning on a forward move.
+#
+#   go-jose/v4 — also a FLOOR, >= v4.1.6 for CVE-2026-116587. trivy links it as
+#   an indirect dependency. tools/trivy/go.mod was bumped to v4.1.6 (#179), but
+#   go.mod alone is the same trust this block already rejects for grpc, so the
+#   linked binary gets the same check.
 ARG TRIVY_GRPC_FLOOR=v1.83.2
 ARG TRIVY_CONTAINERD_FLOOR=v2.4.1
+ARG TRIVY_GOJOSE_FLOOR=v4.1.6
 RUN set -eux; \
     linked() { go version -m /out/trivy | awk -v m="$1" '$1 == "dep" && $2 == m { print $3 }' | head -1; }; \
     got_grpc="$(linked google.golang.org/grpc)"; \
     got_cd="$(linked github.com/containerd/containerd/v2)"; \
-    echo "trivy links grpc=${got_grpc} containerd=${got_cd}"; \
+    got_jose="$(linked github.com/go-jose/go-jose/v4)"; \
+    echo "trivy links grpc=${got_grpc} containerd=${got_cd} go-jose=${got_jose}"; \
     lowest="$(printf '%s\n%s\n' "${TRIVY_GRPC_FLOOR}" "${got_grpc}" | sort -V | head -1)"; \
     if [ -z "${got_grpc}" ] || [ "${lowest}" != "${TRIVY_GRPC_FLOOR}" ]; then \
         echo "FAIL: trivy links grpc ${got_grpc}, below the ${TRIVY_GRPC_FLOOR} security floor." >&2; \
@@ -256,6 +270,13 @@ RUN set -eux; \
         echo "FAIL: trivy links containerd ${got_cd}, below the ${TRIVY_CONTAINERD_FLOOR} security floor." >&2; \
         echo "That version is vulnerable to CVE-2026-53495 or CVE-2026-53493." >&2; \
         echo "Raise the github.com/containerd/containerd/v2 requirement in tools/trivy/go.mod." >&2; \
+        exit 1; \
+    fi; \
+    lowest_jose="$(printf '%s\n%s\n' "${TRIVY_GOJOSE_FLOOR}" "${got_jose}" | sort -V | head -1)"; \
+    if [ -z "${got_jose}" ] || [ "${lowest_jose}" != "${TRIVY_GOJOSE_FLOOR}" ]; then \
+        echo "FAIL: trivy links go-jose ${got_jose}, below the ${TRIVY_GOJOSE_FLOOR} security floor." >&2; \
+        echo "That version is vulnerable to CVE-2026-116587." >&2; \
+        echo "Raise the github.com/go-jose/go-jose/v4 requirement in tools/trivy/go.mod." >&2; \
         exit 1; \
     fi
 

@@ -62,6 +62,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY tools/kubebench/go.mod tools/kubebench/go.sum ./tools/kubebench/
 RUN --mount=type=cache,target=/go/pkg/mod \
     cd tools/kubebench && go mod download
+COPY tools/kubectl/go.mod tools/kubectl/go.sum ./tools/kubectl/
+RUN --mount=type=cache,target=/go/pkg/mod \
+    cd tools/kubectl && go mod download
 
 # Source.
 COPY . .
@@ -283,27 +286,75 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     cp -r "$(go list -m -f '{{.Dir}}' github.com/aquasecurity/kube-bench)/cfg/." /out/kube-bench-cfg/; \
     test -f /out/kube-bench-cfg/config.yaml
 
-# kubectl — the one binary here taken from an upstream release rather than built
-# from source. kube-bench's policies audit scripts call `kubectl`, and so does
-# parsers/kubebench to check the cluster answers before it runs anything.
-# kubectl cannot be built as a dependency: it lives in k8s.io/kubernetes, whose
-# go.mod depends on a long list of replace directives that only apply when it
-# is the main module. So it is pinned by version and verified by SHA-256 per
-# architecture. The build fails rather than install something else.
+# kubectl — built from source out of its own module, tools/kubectl, for the
+# same reason trivy and kube-bench are. kube-bench's policies audit scripts call
+# `kubectl`, and so does parsers/kubebench to check the cluster answers before
+# it runs anything.
 #
-# Both sums are from https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/<arch>/kubectl.sha256
-ARG KUBECTL_VERSION=1.37.1
-ARG KUBECTL_SHA256_AMD64=65691ff77eb6fa44c908b77a1082c9f092c3b9733b5cefabec0d1104890e21a8
-ARG KUBECTL_SHA256_ARM64=ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7
+# This used to be the one binary taken from an upstream release. That choice held
+# that kubectl could not be built as a dependency, because its main lives in
+# k8s.io/kubernetes, whose go.mod carries replace directives that apply only
+# when it is the main module. The reason it is built here now: the published
+# release binary links whatever the k8s release team built it with, and the
+# publish gate blocks a fixable HIGH with no opt-out. kubectl v1.37.2, the
+# newest release, still links golang.org/x/net v0.57.0 and golang.org/x/text
+# v0.40.0 — both below the fix for CVE-2026-78669 and CVE-2026-56851 — and no
+# published kubectl release links a newer x/net, so no pin bump could clear it.
+# This is the same recurring upstream-binary exposure that moved trivy (#69) and
+# kube-bench into their own modules.
+#
+# The replace-directive problem does not apply to the staging module
+# k8s.io/kubectl, which publishes the same command library with no replace
+# directives. A small main (tools/kubectl/kubectl.go) calls
+# cmd.NewDefaultKubectlCommand() and builds a working kubectl as an ordinary
+# dependency. Building it here puts kubectl in our build list, so minimal
+# version selection takes the x/net and x/text floors in tools/kubectl/go.mod,
+# and the pinned toolchain gives a current stdlib. See tools/kubectl/README.md.
+#
+# KUBECTL_VERSION is the k8s.io/kubectl module version (0.MINOR.PATCH, which
+# maps to kubectl 1.MINOR.PATCH). It is asserted against tools/kubectl/go.mod so
+# the two cannot drift: bump both in one commit.
+ARG KUBECTL_VERSION=0.37.2
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    set -eux; \
+    cd tools/kubectl; \
+    grep -qE "^\s+k8s.io/kubectl v${KUBECTL_VERSION}$" go.mod || { \
+        echo "FAIL: KUBECTL_VERSION=${KUBECTL_VERSION} but tools/kubectl/go.mod requires a different k8s.io/kubectl" >&2; \
+        exit 1; \
+    }; \
+    CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" \
+        go build -trimpath \
+            -ldflags="-s -w \
+                -X k8s.io/client-go/pkg/version.gitVersion=v1.${KUBECTL_VERSION#0.} \
+                -X k8s.io/component-base/version.gitVersion=v1.${KUBECTL_VERSION#0.}" \
+            -o /out/kubectl .
+
+# What kubectl links, read from the binary with `go version -m`, not trusted
+# from go.mod. x/net and x/text are FLOORS: the published kubectl release links
+# versions below the CVE fixes, and a future module bump that moved either one
+# backward would pass MVS and only show up in the shipped binary. Failing here
+# beats finding it in a scan of a published image. The stdlib is current by the
+# pinned builder toolchain (GOTOOLCHAIN=local), so it needs no separate check.
+ARG KUBECTL_XNET_FLOOR=v0.61.0
+ARG KUBECTL_XTEXT_FLOOR=v0.43.0
 RUN set -eux; \
-    case "${TARGETARCH}" in \
-        amd64) sha="${KUBECTL_SHA256_AMD64}" ;; \
-        arm64) sha="${KUBECTL_SHA256_ARM64}" ;; \
-        *) echo "FAIL: no kubectl checksum for ${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    curl -fsSL --retry 3 -o /out/kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl"; \
-    echo "${sha}  /out/kubectl" | sha256sum -c -; \
-    chmod 0755 /out/kubectl
+    linked() { go version -m /out/kubectl | awk -v m="$1" '$1 == "dep" && $2 == m { print $3 }' | head -1; }; \
+    got_net="$(linked golang.org/x/net)"; \
+    got_text="$(linked golang.org/x/text)"; \
+    echo "kubectl links x/net=${got_net} x/text=${got_text}"; \
+    lowest_net="$(printf '%s\n%s\n' "${KUBECTL_XNET_FLOOR}" "${got_net}" | sort -V | head -1)"; \
+    if [ -z "${got_net}" ] || [ "${lowest_net}" != "${KUBECTL_XNET_FLOOR}" ]; then \
+        echo "FAIL: kubectl links x/net ${got_net}, below the ${KUBECTL_XNET_FLOOR} security floor." >&2; \
+        echo "Raise the golang.org/x/net requirement in tools/kubectl/go.mod." >&2; \
+        exit 1; \
+    fi; \
+    lowest_text="$(printf '%s\n%s\n' "${KUBECTL_XTEXT_FLOOR}" "${got_text}" | sort -V | head -1)"; \
+    if [ -z "${got_text}" ] || [ "${lowest_text}" != "${KUBECTL_XTEXT_FLOOR}" ]; then \
+        echo "FAIL: kubectl links x/text ${got_text}, below the ${KUBECTL_XTEXT_FLOOR} security floor." >&2; \
+        echo "Raise the golang.org/x/text requirement in tools/kubectl/go.mod." >&2; \
+        exit 1; \
+    fi
 
 ########################
 # Stage 2 — runtime

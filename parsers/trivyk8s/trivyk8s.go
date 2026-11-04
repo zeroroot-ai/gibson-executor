@@ -330,6 +330,33 @@ func tail(b []byte, n int) string {
 	return strings.TrimSpace(string(b))
 }
 
+// buildArgs assembles the `trivy k8s` argv. The flag set is pinned to the
+// trivy version the image installs (TRIVY_VERSION in the Dockerfile). At
+// v0.76.0 the k8s command scopes the scan with --include-namespaces and audits
+// the whole cluster when none is named. It defines no --namespace and no
+// --all-namespaces flag, and trivy exits FATAL on an unknown flag rather than
+// ignoring it, so a scope flag that version does not know fails the whole run.
+func buildArgs(cfg config) []string {
+	args := []string{
+		"k8s",
+		"--format", "json",
+		"--scanners", scanners,
+		// Pass rows are needed to count what was audited. Without them a
+		// workload with no failed check is absent from the report and cannot
+		// be told apart from one that was never read.
+		"--include-non-failures",
+		"--quiet",
+		"--timeout", strconv.Itoa(defaultTimeout) + "s",
+	}
+	// A single namespace narrows the scan with --include-namespaces. No
+	// namespace audits the whole cluster, which is the k8s command's own
+	// default, so it adds no scope flag.
+	if cfg.namespace != "" {
+		args = append(args, "--include-namespaces", cfg.namespace)
+	}
+	return args
+}
+
 func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*registry.ExecuteResponse, error) {
 	failed := &registry.ExecuteResponse{ParseQuality: registry.ParseQualityFailed}
 
@@ -369,23 +396,7 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 		return failed, fmt.Errorf("trivy-k8s cannot reach the cluster with the supplied kubeconfig: %s", why(ver, err))
 	}
 
-	args := []string{
-		"k8s",
-		"--format", "json",
-		"--scanners", scanners,
-		// Pass rows are needed to count what was audited. Without them a
-		// workload with no failed check is absent from the report and cannot
-		// be told apart from one that was never read.
-		"--include-non-failures",
-		"--quiet",
-		"--timeout", strconv.Itoa(defaultTimeout) + "s",
-	}
-	if cfg.namespace != "" {
-		args = append(args, "--namespace", cfg.namespace)
-	} else {
-		args = append(args, "--all-namespaces")
-	}
-	res, runErr := runProc(ctx, env, "trivy", args...)
+	res, runErr := runProc(ctx, env, "trivy", buildArgs(cfg)...)
 
 	resp := &registry.ExecuteResponse{Stdout: res.stdout, Stderr: res.stderr, ExitCode: res.exit}
 	if runErr != nil && len(res.stdout) == 0 {

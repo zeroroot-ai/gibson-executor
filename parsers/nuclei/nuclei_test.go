@@ -12,6 +12,7 @@ import (
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
+	"github.com/zeroroot-ai/gibson-executor/internal/sandbox"
 )
 
 func TestParseJSONLines_TwoFindings(t *testing.T) {
@@ -203,5 +204,24 @@ func TestParseJSONLines_NoEvidenceWhenNucleiGaveNone(t *testing.T) {
 	}
 	if _, ok := ev[evidenceProtocol]; !ok {
 		t.Errorf("protocol evidence missing; nuclei did report type=http for this line")
+	}
+}
+
+// TestDescribe_MemoryHeadroom locks the sandbox memory the daemon gives nuclei.
+// 1Gi OOM-killed nuclei in the Firecracker guest on staging (gibson#1356), so
+// the hint must not fall back below 2Gi.
+func TestDescribe_MemoryHeadroom(t *testing.T) {
+	got := (&parser{}).Describe().Resources.Memory
+	if got != "2Gi" {
+		t.Fatalf("nuclei sandbox memory hint = %q, want 2Gi (gibson#1356)", got)
+	}
+}
+
+// TestExecute_RaisesAddressSpaceCeiling proves nuclei lifts RLIMIT_AS above the
+// 2 GiB default, like trivy, so its Go arena reservation does not fail at
+// startup. The override is a max, so it only ever raises the ceiling.
+func TestExecute_RaisesAddressSpaceCeiling(t *testing.T) {
+	if nucleiAddressSpaceBytes <= sandbox.DefaultConfig().MemoryBytes {
+		t.Fatalf("nucleiAddressSpaceBytes %d must exceed the default RLIMIT_AS %d", nucleiAddressSpaceBytes, sandbox.DefaultConfig().MemoryBytes)
 	}
 }

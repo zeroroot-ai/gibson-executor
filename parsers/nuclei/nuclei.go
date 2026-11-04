@@ -27,6 +27,14 @@ const (
 	toolName       = "nuclei"
 	toolVersion    = "0.1.0"
 	defaultTimeout = 600
+
+	// nuclei is a Go binary that loads its whole template set and reserves a
+	// large sparse arena before it maps anything. RLIMIT_AS caps ADDRESS SPACE,
+	// not resident memory, so the 2 GiB DefaultConfig ceiling leaves no room for
+	// the arena and nuclei dies at startup with a runtime-fatal "cannot allocate
+	// memory" (gibson#1356) — the same wall trivy hit. 8 GiB of address space
+	// costs no resident memory; the scan's real footprint is a few hundred MiB.
+	nucleiAddressSpaceBytes = 8192 * 1024 * 1024
 )
 
 func init() { registry.Register(&parser{}) }
@@ -51,7 +59,7 @@ func (p *parser) Describe() registry.CatalogEntry {
 		},
 		OutputProtoType:       "gibson.graphrag.v1.DiscoveryResult",
 		DefaultParseQuality:   registry.ParseQualityStructured,
-		Resources:             registry.ResourceHint{VCPU: 2, Memory: "1Gi"},
+		Resources:             registry.ResourceHint{VCPU: 2, Memory: "2Gi"},
 		DefaultTimeoutSeconds: defaultTimeout,
 	}
 }
@@ -137,6 +145,9 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 	}
 
 	sbCfg := sandbox.DefaultConfig()
+	if sbCfg.MemoryBytes < nucleiAddressSpaceBytes {
+		sbCfg.MemoryBytes = nucleiAddressSpaceBytes
+	}
 	var stdout, stderr sandbox.CappedBuffer
 	stdout.Init(sbCfg.OutputCapBytes)
 	stderr.Init(sbCfg.OutputCapBytes)

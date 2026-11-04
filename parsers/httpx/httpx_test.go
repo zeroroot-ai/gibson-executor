@@ -77,3 +77,13 @@ func TestRegistryIntegration(t *testing.T) {
 		t.Fatalf("registry.Lookup(%q) = false", toolName)
 	}
 }
+
+// TestDescribe_MemoryHeadroom locks the sandbox memory the daemon gives httpx.
+// 256Mi OOM-killed httpx in the Firecracker guest on staging (gibson#1356);
+// naabu and kube-bench run at 512Mi, so that is the floor.
+func TestDescribe_MemoryHeadroom(t *testing.T) {
+	got := (&parser{}).Describe().Resources.Memory
+	if got != "512Mi" {
+		t.Fatalf("httpx sandbox memory hint = %q, want 512Mi (gibson#1356)", got)
+	}
+}

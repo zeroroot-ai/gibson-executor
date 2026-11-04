@@ -51,7 +51,10 @@ func (p *parser) Describe() registry.CatalogEntry {
 		},
 		OutputProtoType:       "gibson.graphrag.v1.DiscoveryResult",
 		DefaultParseQuality:   registry.ParseQualityStructured,
-		Resources:             registry.ResourceHint{VCPU: 1, Memory: "256Mi"},
+		// 256Mi was too small: the Firecracker guest OOM-killed httpx mid-run
+		// (exit 2, guest-kernel slab OOM) on staging. naabu and kube-bench run
+		// at 512Mi, so match that floor (gibson#1356).
+		Resources:             registry.ResourceHint{VCPU: 1, Memory: "512Mi"},
 		DefaultTimeoutSeconds: defaultTimeout,
 	}
 }

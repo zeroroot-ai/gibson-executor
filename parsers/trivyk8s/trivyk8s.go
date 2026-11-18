@@ -50,7 +50,6 @@
 //	Workload      one per resource that was read, whether or not it failed a
 //	              check, so a clean workload is visible as audited
 //	Finding       one per check that failed, parented to its Workload
-//	Evidence      the check's raw trivy result, unmodified, per Finding
 //
 // ClusterAudit is what makes an empty Finding list readable. "No findings"
 // with 40 workloads audited and 0 unreadable means the cluster conformed.
@@ -505,12 +504,6 @@ func parseReport(raw []byte, cluster string) (*graphragpb.DiscoveryResult, regis
 				failures++
 				fid := findingID(auditID, ref, m.ID)
 				disc.Findings = append(disc.Findings, buildFinding(fid, ref, sev, m))
-				disc.Evidence = append(disc.Evidence, &graphragpb.Evidence{
-					Id:        proto.String(fid + ":result"),
-					FindingId: fid,
-					Type:      "trivy-k8s-misconfiguration",
-					Content:   proto.String(string(rawCheck)),
-				})
 			}
 		}
 
@@ -589,8 +582,7 @@ func buildFinding(id, ref, severity string, m misconf) *graphragpb.Finding {
 		desc += " " + oneLine(m.Description)
 	}
 	// graphragpb.Finding carries no references field, so the check's own page
-	// goes in the description. Evidence holds the raw check, which names it
-	// too, but a reader sees the description first.
+	// goes in the description.
 	if m.PrimaryURL != "" {
 		desc += " See " + m.PrimaryURL
 	}

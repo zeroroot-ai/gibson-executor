@@ -283,28 +283,6 @@ func TestFindingsAreAttributedPerWorkload(t *testing.T) {
 	}
 }
 
-// TestEveryFindingHasEvidence holds the one-to-one tie between a finding and
-// the raw check it came from.
-func TestEveryFindingHasEvidence(t *testing.T) {
-	disc, _ := parseGolden(t)
-
-	byFinding := map[string]int{}
-	for _, e := range disc.GetEvidence() {
-		byFinding[e.GetFindingId()]++
-		if !json.Valid([]byte(e.GetContent())) {
-			t.Errorf("evidence %s is not the raw check JSON", e.GetId())
-		}
-	}
-	if len(disc.GetFindings()) == 0 {
-		t.Fatal("no findings, so this test would measure nothing")
-	}
-	for _, f := range disc.GetFindings() {
-		if byFinding[f.GetId()] != 1 {
-			t.Errorf("finding %s has %d evidence rows, want 1", f.GetId(), byFinding[f.GetId()])
-		}
-	}
-}
-
 // TestUnknownSeverityIsRefused is the one that stops a silent downgrade. If
 // trivy adds a tier, folding it into "low" would present its grading as
 // something softer than it is.

@@ -38,7 +38,6 @@
 //	BenchmarkRun  one per run: benchmark, cluster version, counts, and the
 //	              id of every control that was NOT assessed, with the reason
 //	Finding       one per control that was assessed and did not conform
-//	Evidence      the control's raw kube-bench result, unmodified, per Finding
 //
 // BenchmarkRun is what makes an empty Finding list readable. "No findings"
 // with a BenchmarkRun that says 5 controls passed and 0 errored means the
@@ -406,8 +405,7 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 // ---- parsing --------------------------------------------------------------
 
 // report is the subset of `kube-bench run --json` this parser reads. The
-// results stay as raw JSON beside their decoded form so the Evidence carries
-// exactly what kube-bench printed.
+// results stay as raw JSON beside their decoded form.
 type report struct {
 	Controls []struct {
 		Version         string `json:"version"`
@@ -566,12 +564,6 @@ func parseReport(raw []byte, cluster string) (*graphragpb.DiscoveryResult, regis
 				case outcomeFailed:
 					failed++
 					disc.Findings = append(disc.Findings, buildFinding(runID, benchmark, detected, c))
-					disc.Evidence = append(disc.Evidence, &graphragpb.Evidence{
-						Id:        proto.String(findingID(runID, c.ID) + ":result"),
-						FindingId: findingID(runID, c.ID),
-						Type:      "kube-bench-result",
-						Content:   proto.String(string(rawCheck)),
-					})
 				}
 			}
 		}

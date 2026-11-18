@@ -170,36 +170,6 @@ func TestGolden_RealCapture(t *testing.T) {
 	}
 }
 
-// TestGolden_EvidenceIsTheRawResult pins that each Finding carries kube-bench's
-// own result for that control, unmodified, as Evidence.
-func TestGolden_EvidenceIsTheRawResult(t *testing.T) {
-	disc, _ := parseGolden(t)
-	if len(disc.Evidence) != len(disc.Findings) {
-		t.Fatalf("%d evidence for %d findings, want one each", len(disc.Evidence), len(disc.Findings))
-	}
-	byFinding := map[string]*graphragpb.Evidence{}
-	for _, e := range disc.Evidence {
-		byFinding[e.GetFindingId()] = e
-	}
-	for _, f := range disc.Findings {
-		e, ok := byFinding[f.GetId()]
-		if !ok {
-			t.Fatalf("finding %s has no evidence", f.GetId())
-		}
-		var c struct {
-			TestNumber string `json:"test_number"`
-			Audit      string `json:"audit"`
-			Actual     string `json:"actual_value"`
-		}
-		if err := json.Unmarshal([]byte(e.GetContent()), &c); err != nil {
-			t.Fatalf("evidence is not kube-bench JSON: %v", err)
-		}
-		if c.TestNumber == "" || c.Audit == "" || c.Actual == "" {
-			t.Errorf("evidence for %s lost fields: %+v", f.GetId(), c)
-		}
-	}
-}
-
 // TestGolden_OneFindingPerFailedControlNoneForPasses checks the count both
 // ways against the recording: every passing control is absent, every control
 // that was assessed and did not conform is present exactly once.

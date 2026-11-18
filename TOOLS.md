@@ -27,8 +27,7 @@ most take <200 LOC.
 - 🟢 trivy — Image/Package/Vulnerability CustomNodes + one Finding per
   affected package (container image scan; the only parser here that looks
   at the artifact rather than a running service)
-- 🟡 kube-bench — BenchmarkRun + one Finding per failed CIS control, with the
-  control's raw result as Evidence. Runs the `policies` target only, through
+- 🟡 kube-bench — BenchmarkRun + one Finding per failed CIS control. Runs the `policies` target only, through
   the Kubernetes API. The mission declares which named tenant secret holds the
   cluster's kubeconfig (gibson#485); the input names it and the daemon puts the
   value in the tool's environment. Without it the tool fails with an error that

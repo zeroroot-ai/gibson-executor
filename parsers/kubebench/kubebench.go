@@ -38,6 +38,7 @@
 //	BenchmarkRun  one per run: benchmark, cluster version, counts, and the
 //	              id of every control that was NOT assessed, with the reason
 //	Finding       one per control that was assessed and did not conform
+//	Evidence      the control's raw kube-bench result, unmodified, per Finding
 //
 // BenchmarkRun is what makes an empty Finding list readable. "No findings"
 // with a BenchmarkRun that says 5 controls passed and 0 errored means the
@@ -60,6 +61,8 @@ import (
 	"strings"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
+	typespb "github.com/zeroroot-ai/sdk/api/gen/gibson/types/v1"
+	"github.com/zeroroot-ai/sdk/extraction"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
@@ -405,7 +408,8 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 // ---- parsing --------------------------------------------------------------
 
 // report is the subset of `kube-bench run --json` this parser reads. The
-// results stay as raw JSON beside their decoded form.
+// results stay as raw JSON beside their decoded form so the evidence carries
+// exactly what kube-bench printed.
 type report struct {
 	Controls []struct {
 		Version         string `json:"version"`
@@ -564,6 +568,17 @@ func parseReport(raw []byte, cluster string) (*graphragpb.DiscoveryResult, regis
 				case outcomeFailed:
 					failed++
 					disc.Findings = append(disc.Findings, buildFinding(runID, benchmark, detected, c))
+					// The raw result of the control, as kube-bench printed it.
+					if err := extraction.AddEvidence(disc, findingID(runID, c.ID), extraction.Evidence{
+						Type:    typespb.EvidenceType_EVIDENCE_TYPE_OTHER,
+						Title:   "kube-bench result for control " + c.ID,
+						Content: string(rawCheck),
+						Metadata: map[string]string{
+							"kind": "kube-bench-result", "control": c.ID, "benchmark": benchmark,
+						},
+					}); err != nil {
+						return disc, registry.ParseQualityFailed, fmt.Errorf("kube-bench: %w", err)
+					}
 				}
 			}
 		}

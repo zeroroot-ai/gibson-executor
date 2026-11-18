@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
+	typespb "github.com/zeroroot-ai/sdk/api/gen/gibson/types/v1"
 	"github.com/zeroroot-ai/sdk/secretenv"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
@@ -279,6 +280,35 @@ func TestFindingsAreAttributedPerWorkload(t *testing.T) {
 		want := perWorkload[id]
 		if got := n.GetProperties()["checks_failed"]; got != strconv.Itoa(want) {
 			t.Errorf("%s checks_failed = %q, want %d", id, got, want)
+		}
+	}
+}
+
+// TestEveryFindingHasEvidence holds the one-to-one tie between a finding and
+// the raw check it came from.
+func TestEveryFindingHasEvidence(t *testing.T) {
+	disc, _ := parseGolden(t)
+
+	byFinding := map[string]int{}
+	for _, fe := range disc.GetFindingEvidence() {
+		e := fe.GetEvidence()
+		byFinding[fe.GetFindingId()]++
+		if !json.Valid([]byte(e.GetContent())) {
+			t.Errorf("evidence %q is not the raw check JSON", e.GetTitle())
+		}
+		if e.GetTier() != typespb.EvidenceTier_EVIDENCE_TIER_UNSPECIFIED || e.GetToolCallId() != "" {
+			t.Errorf("evidence %q has a tier or a tool call id that the parser set", e.GetTitle())
+		}
+		if e.GetMetadata()["kind"] != "trivy-k8s-misconfiguration" || e.GetMetadata()["check"] == "" {
+			t.Errorf("evidence %q has metadata %v", e.GetTitle(), e.GetMetadata())
+		}
+	}
+	if len(disc.GetFindings()) == 0 {
+		t.Fatal("no findings, so this test would measure nothing")
+	}
+	for _, f := range disc.GetFindings() {
+		if byFinding[f.GetId()] != 1 {
+			t.Errorf("finding %s has %d evidence items, want 1", f.GetId(), byFinding[f.GetId()])
 		}
 	}
 }

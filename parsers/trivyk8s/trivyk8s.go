@@ -50,6 +50,7 @@
 //	Workload      one per resource that was read, whether or not it failed a
 //	              check, so a clean workload is visible as audited
 //	Finding       one per check that failed, parented to its Workload
+//	Evidence      the check's raw trivy result, unmodified, per Finding
 //
 // ClusterAudit is what makes an empty Finding list readable. "No findings"
 // with 40 workloads audited and 0 unreadable means the cluster conformed.
@@ -72,6 +73,8 @@ import (
 	"strings"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
+	typespb "github.com/zeroroot-ai/sdk/api/gen/gibson/types/v1"
+	"github.com/zeroroot-ai/sdk/extraction"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
@@ -504,6 +507,17 @@ func parseReport(raw []byte, cluster string) (*graphragpb.DiscoveryResult, regis
 				failures++
 				fid := findingID(auditID, ref, m.ID)
 				disc.Findings = append(disc.Findings, buildFinding(fid, ref, sev, m))
+				// The raw trivy result of the check.
+				if err := extraction.AddEvidence(disc, fid, extraction.Evidence{
+					Type:    typespb.EvidenceType_EVIDENCE_TYPE_OTHER,
+					Title:   "trivy-k8s result for check " + m.ID + " on " + ref,
+					Content: string(rawCheck),
+					Metadata: map[string]string{
+						"kind": "trivy-k8s-misconfiguration", "check": m.ID, "resource": ref,
+					},
+				}); err != nil {
+					return disc, registry.ParseQualityFailed, fmt.Errorf("trivy-k8s: %w", err)
+				}
 			}
 		}
 

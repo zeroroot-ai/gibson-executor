@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.115.2](https://github.com/zeroroot-ai/gibson-executor/compare/v0.115.1...v0.115.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **deps:** move x/net to v0.62.0 in every module that links it ([#196](https://github.com/zeroroot-ai/gibson-executor/issues/196)) ([131a708](https://github.com/zeroroot-ai/gibson-executor/commit/131a708ef8e2de3f7e56774442d39bd6b1ffa2e4))
+
 ## [0.115.1](https://github.com/zeroroot-ai/gibson-executor/compare/v0.115.0...v0.115.1) (2026-11-19)
 
 

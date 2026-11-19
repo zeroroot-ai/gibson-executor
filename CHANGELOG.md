@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.115.1](https://github.com/zeroroot-ai/gibson-executor/compare/v0.115.0...v0.115.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **deps:** move x/net in the recon tools to v0.62.0 ([#194](https://github.com/zeroroot-ai/gibson-executor/issues/194)) ([7b20249](https://github.com/zeroroot-ai/gibson-executor/commit/7b20249fe67cbba1e3a4f57009b0f45585ce71bd))
+
 ## [0.115.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.114.3...v0.115.0) (2026-11-19)
 
 

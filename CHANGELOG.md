@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.115.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.114.3...v0.115.0) (2026-11-19)
+
+
+### Features
+
+* write finding evidence from the parsers with the SDK evidence field ([#193](https://github.com/zeroroot-ai/gibson-executor/issues/193)) ([edddafe](https://github.com/zeroroot-ai/gibson-executor/commit/edddafe824c4a587a28b75bebad9d8fda72c525e))
+
+
+### Bug Fixes
+
+* **sandbox:** give nuclei and httpx enough sandbox memory to run ([#185](https://github.com/zeroroot-ai/gibson-executor/issues/185)) ([5b0d552](https://github.com/zeroroot-ai/gibson-executor/commit/5b0d5528798ddeab5eace56541036a56457b3bce))
+* **trivy-k8s:** use flags trivy v0.76.0 accepts for namespace scope ([#188](https://github.com/zeroroot-ai/gibson-executor/issues/188)) ([6d05b41](https://github.com/zeroroot-ai/gibson-executor/commit/6d05b41c601810ae4a9f54df1f08dde3ccf82b58)), closes [#187](https://github.com/zeroroot-ai/gibson-executor/issues/187)
+
 ## [0.114.3](https://github.com/zeroroot-ai/gibson-executor/compare/v0.114.2...v0.114.3) (2026-11-03)
 
 

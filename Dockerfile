@@ -137,7 +137,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
         case "$mod" in \
             golang.org/x/crypto)              floor=v0.56.0 ;; \
             golang.org/x/mod)                 floor=v0.40.0 ;; \
-            golang.org/x/net)                 floor=v0.56.0 ;; \
+            golang.org/x/net)                 floor=v0.62.0 ;; \
             golang.org/x/text)                floor=v0.39.0 ;; \
             github.com/go-jose/go-jose/v4)    floor=v4.1.6  ;; \
             *)                                continue ;; \

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
+	typespb "github.com/zeroroot-ai/sdk/api/gen/gibson/types/v1"
 	"github.com/zeroroot-ai/sdk/secretenv"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
@@ -289,10 +290,17 @@ func TestEveryFindingHasEvidence(t *testing.T) {
 	disc, _ := parseGolden(t)
 
 	byFinding := map[string]int{}
-	for _, e := range disc.GetEvidence() {
-		byFinding[e.GetFindingId()]++
+	for _, fe := range disc.GetFindingEvidence() {
+		e := fe.GetEvidence()
+		byFinding[fe.GetFindingId()]++
 		if !json.Valid([]byte(e.GetContent())) {
-			t.Errorf("evidence %s is not the raw check JSON", e.GetId())
+			t.Errorf("evidence %q is not the raw check JSON", e.GetTitle())
+		}
+		if e.GetTier() != typespb.EvidenceTier_EVIDENCE_TIER_UNSPECIFIED || e.GetToolCallId() != "" {
+			t.Errorf("evidence %q has a tier or a tool call id that the parser set", e.GetTitle())
+		}
+		if e.GetMetadata()["kind"] != "trivy-k8s-misconfiguration" || e.GetMetadata()["check"] == "" {
+			t.Errorf("evidence %q has metadata %v", e.GetTitle(), e.GetMetadata())
 		}
 	}
 	if len(disc.GetFindings()) == 0 {
@@ -300,7 +308,7 @@ func TestEveryFindingHasEvidence(t *testing.T) {
 	}
 	for _, f := range disc.GetFindings() {
 		if byFinding[f.GetId()] != 1 {
-			t.Errorf("finding %s has %d evidence rows, want 1", f.GetId(), byFinding[f.GetId()])
+			t.Errorf("finding %s has %d evidence items, want 1", f.GetId(), byFinding[f.GetId()])
 		}
 	}
 }

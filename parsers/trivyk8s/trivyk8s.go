@@ -73,6 +73,8 @@ import (
 	"strings"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
+	typespb "github.com/zeroroot-ai/sdk/api/gen/gibson/types/v1"
+	"github.com/zeroroot-ai/sdk/extraction"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
@@ -505,12 +507,17 @@ func parseReport(raw []byte, cluster string) (*graphragpb.DiscoveryResult, regis
 				failures++
 				fid := findingID(auditID, ref, m.ID)
 				disc.Findings = append(disc.Findings, buildFinding(fid, ref, sev, m))
-				disc.Evidence = append(disc.Evidence, &graphragpb.Evidence{
-					Id:        proto.String(fid + ":result"),
-					FindingId: fid,
-					Type:      "trivy-k8s-misconfiguration",
-					Content:   proto.String(string(rawCheck)),
-				})
+				// The raw trivy result of the check.
+				if err := extraction.AddEvidence(disc, fid, extraction.Evidence{
+					Type:    typespb.EvidenceType_EVIDENCE_TYPE_OTHER,
+					Title:   "trivy-k8s result for check " + m.ID + " on " + ref,
+					Content: string(rawCheck),
+					Metadata: map[string]string{
+						"kind": "trivy-k8s-misconfiguration", "check": m.ID, "resource": ref,
+					},
+				}); err != nil {
+					return disc, registry.ParseQualityFailed, fmt.Errorf("trivy-k8s: %w", err)
+				}
 			}
 		}
 
@@ -589,8 +596,7 @@ func buildFinding(id, ref, severity string, m misconf) *graphragpb.Finding {
 		desc += " " + oneLine(m.Description)
 	}
 	// graphragpb.Finding carries no references field, so the check's own page
-	// goes in the description. Evidence holds the raw check, which names it
-	// too, but a reader sees the description first.
+	// goes in the description.
 	if m.PrimaryURL != "" {
 		desc += " See " + m.PrimaryURL
 	}

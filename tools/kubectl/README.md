@@ -38,7 +38,7 @@ Building from a module we own puts kubectl in *our* build list, so minimal
 version selection applies across all of it. MVS selects the maximum of every
 requirement, so the explicit `golang.org/x/net` and `golang.org/x/text` floors
 here win over what `k8s.io/kubectl` asks for. The pinned Go toolchain
-(`golang:1.27.3` in `Dockerfile`, `GOTOOLCHAIN=local`) gives a current stdlib,
+(`golang:1.27.4` in `Dockerfile`, `GOTOOLCHAIN=local`) gives a current stdlib,
 which clears the four stdlib CVEs the older release binary carried.
 
 `go.mod` has two kinds of requirement:

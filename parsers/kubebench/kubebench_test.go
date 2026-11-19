@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
+	typespb "github.com/zeroroot-ai/sdk/api/gen/gibson/types/v1"
 	"github.com/zeroroot-ai/sdk/secretenv"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
@@ -166,36 +167,6 @@ func TestGolden_RealCapture(t *testing.T) {
 	} {
 		if run[k] != want {
 			t.Errorf("BenchmarkRun[%s] = %q, want %q", k, run[k], want)
-		}
-	}
-}
-
-// TestGolden_EvidenceIsTheRawResult pins that each Finding carries kube-bench's
-// own result for that control, unmodified, as Evidence.
-func TestGolden_EvidenceIsTheRawResult(t *testing.T) {
-	disc, _ := parseGolden(t)
-	if len(disc.Evidence) != len(disc.Findings) {
-		t.Fatalf("%d evidence for %d findings, want one each", len(disc.Evidence), len(disc.Findings))
-	}
-	byFinding := map[string]*graphragpb.Evidence{}
-	for _, e := range disc.Evidence {
-		byFinding[e.GetFindingId()] = e
-	}
-	for _, f := range disc.Findings {
-		e, ok := byFinding[f.GetId()]
-		if !ok {
-			t.Fatalf("finding %s has no evidence", f.GetId())
-		}
-		var c struct {
-			TestNumber string `json:"test_number"`
-			Audit      string `json:"audit"`
-			Actual     string `json:"actual_value"`
-		}
-		if err := json.Unmarshal([]byte(e.GetContent()), &c); err != nil {
-			t.Fatalf("evidence is not kube-bench JSON: %v", err)
-		}
-		if c.TestNumber == "" || c.Audit == "" || c.Actual == "" {
-			t.Errorf("evidence for %s lost fields: %+v", f.GetId(), c)
 		}
 	}
 }
@@ -649,4 +620,40 @@ func requiredFields(t *testing.T, e registry.CatalogEntry) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+// TestGolden_EvidenceIsTheRawResult pins that each Finding carries the own
+// result of kube-bench for that control, unmodified, as an evidence item.
+func TestGolden_EvidenceIsTheRawResult(t *testing.T) {
+	disc, _ := parseGolden(t)
+	if len(disc.GetFindingEvidence()) != len(disc.Findings) {
+		t.Fatalf("%d evidence for %d findings, want one each", len(disc.GetFindingEvidence()), len(disc.Findings))
+	}
+	byFinding := map[string]*typespb.Evidence{}
+	for _, fe := range disc.GetFindingEvidence() {
+		byFinding[fe.GetFindingId()] = fe.GetEvidence()
+	}
+	for _, f := range disc.Findings {
+		e, ok := byFinding[f.GetId()]
+		if !ok {
+			t.Fatalf("finding %s has no evidence", f.GetId())
+		}
+		if e.GetTier() != typespb.EvidenceTier_EVIDENCE_TIER_UNSPECIFIED || e.GetToolCallId() != "" {
+			t.Errorf("evidence for %s has a tier or a tool call id that the parser set", f.GetId())
+		}
+		if e.GetMetadata()["kind"] != "kube-bench-result" || e.GetMetadata()["control"] == "" {
+			t.Errorf("evidence for %s has metadata %v", f.GetId(), e.GetMetadata())
+		}
+		var c struct {
+			TestNumber string `json:"test_number"`
+			Audit      string `json:"audit"`
+			Actual     string `json:"actual_value"`
+		}
+		if err := json.Unmarshal([]byte(e.GetContent()), &c); err != nil {
+			t.Fatalf("evidence is not kube-bench JSON: %v", err)
+		}
+		if c.TestNumber == "" || c.Audit == "" || c.Actual == "" {
+			t.Errorf("evidence for %s lost fields: %+v", f.GetId(), c)
+		}
+	}
 }

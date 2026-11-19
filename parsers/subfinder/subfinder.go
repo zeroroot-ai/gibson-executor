@@ -56,8 +56,8 @@ func (p *parser) Describe() registry.CatalogEntry {
 // produced the subdomain (crtsh, virustotal, ...), which is provenance about
 // the scan rather than a property of the asset. graphrag's Subdomain has four
 // fields and none of them is provenance, and the alternatives are worse: a
-// CustomNode would put scan metadata in the asset graph, and Evidence is keyed
-// by finding id while a discovered subdomain is not a finding. It was decoded
+// CustomNode would put scan metadata in the asset graph, and a tool call backs
+// a finding, while a discovered subdomain is not a finding. It was decoded
 // and dropped before (gibson-executor#89); not decoding it is the honest form
 // of the same state, and the typed home is tracked separately.
 type subfinderRecord struct {

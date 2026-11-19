@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	graphragpb "github.com/zeroroot-ai/sdk/api/gen/gibson/graphrag/v1"
+	typespb "github.com/zeroroot-ai/sdk/api/gen/gibson/types/v1"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
 	"github.com/zeroroot-ai/gibson-executor/internal/sandbox"
@@ -85,84 +86,6 @@ func TestRegistryIntegration(t *testing.T) {
 	}
 }
 
-// evidenceByType indexes a DiscoveryResult's Evidence for one finding.
-func evidenceByType(disc *graphragpb.DiscoveryResult, findingID string) map[string]*graphragpb.Evidence {
-	out := map[string]*graphragpb.Evidence{}
-	for _, e := range disc.Evidence {
-		if e.GetFindingId() == findingID {
-			out[e.GetType()] = e
-		}
-	}
-	return out
-}
-
-// TestParseJSONLines_EvidenceCarriesTheProof is gibson-executor#89.
-//
-// nuclei's curl-command, extracted-results, cwe-id and cvss-metrics were
-// decoded into nucleiEvent and never read, so a finding arrived with no way to
-// reproduce it, no extracted value, no CWE and no CVSS vector. graphrag's
-// Finding has no field for any of them; DiscoveryResult.Evidence does.
-func TestParseJSONLines_EvidenceCarriesTheProof(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("testdata", "simple.jsonl"))
-	if err != nil {
-		t.Fatalf("read fixture: %v", err)
-	}
-	disc, _, err := parseJSONLines(raw)
-	if err != nil {
-		t.Fatalf("parseJSONLines: %v", err)
-	}
-
-	leak := disc.Findings[2]
-	if leak.Title != "Server version disclosed in response headers" {
-		t.Fatalf("finding[2].title = %q", leak.Title)
-	}
-	ev := evidenceByType(disc, leak.GetId())
-
-	repro, ok := ev[evidenceReproduction]
-	if !ok {
-		t.Fatalf("no %s evidence; the finding cannot be reproduced", evidenceReproduction)
-	}
-	if !strings.Contains(repro.GetContent(), "curl -X 'GET'") {
-		t.Errorf("reproduction content = %q; want the curl command", repro.GetContent())
-	}
-	if repro.GetUrl() != "http://scanme.nmap.org/static/app.js" {
-		t.Errorf("reproduction url = %q; want matched-at", repro.GetUrl())
-	}
-
-	extracted, ok := ev[evidenceExtracted]
-	if !ok {
-		t.Fatalf("no %s evidence; the matched values are the proof", evidenceExtracted)
-	}
-	for _, want := range []string{"Apache/2.4.49 (Unix)", "X-Powered-By: PHP/5.6.40"} {
-		if !strings.Contains(extracted.GetContent(), want) {
-			t.Errorf("extracted content %q does not carry %q", extracted.GetContent(), want)
-		}
-	}
-
-	if got := ev[evidenceCWE].GetContent(); got != "CWE-200,CWE-497" {
-		t.Errorf("cwe evidence = %q; want both ids in nuclei's order", got)
-	}
-	if got := ev[evidenceCVSSVector].GetContent(); got != "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N" {
-		t.Errorf("cvss vector evidence = %q", got)
-	}
-	if got := ev[evidenceProtocol].GetContent(); got != "http" {
-		t.Errorf("protocol evidence = %q; want http", got)
-	}
-
-	// Every Evidence node must name a Finding that is actually in the result.
-	// An orphan is worse than a missing one: it reads as proof of something
-	// nobody emitted.
-	ids := map[string]bool{}
-	for _, f := range disc.Findings {
-		ids[f.GetId()] = true
-	}
-	for _, e := range disc.Evidence {
-		if !ids[e.GetFindingId()] {
-			t.Errorf("evidence %q points at finding %q, which is not in the result", e.GetType(), e.GetFindingId())
-		}
-	}
-}
-
 // TestParseJSONLines_HostIsTheFindingsParent covers nucleiEvent.Host, which was
 // also decoded and dropped: a finding named a template and a matched URL but
 // never said which host it was about in a field the graph can traverse.
@@ -182,31 +105,6 @@ func TestParseJSONLines_HostIsTheFindingsParent(t *testing.T) {
 	}
 }
 
-// TestParseJSONLines_NoEvidenceWhenNucleiGaveNone keeps the mapping honest in
-// the other direction. The exposed-panel fixture line carries no curl command,
-// no extracted results and no classification, so it must produce no Evidence
-// but the protocol — an empty node would assert proof that does not exist.
-func TestParseJSONLines_NoEvidenceWhenNucleiGaveNone(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("testdata", "simple.jsonl"))
-	if err != nil {
-		t.Fatalf("read fixture: %v", err)
-	}
-	disc, _, err := parseJSONLines(raw)
-	if err != nil {
-		t.Fatalf("parseJSONLines: %v", err)
-	}
-	panel := disc.Findings[1]
-	ev := evidenceByType(disc, panel.GetId())
-	for _, kind := range []string{evidenceReproduction, evidenceExtracted, evidenceCWE, evidenceCVSSVector} {
-		if _, ok := ev[kind]; ok {
-			t.Errorf("%s evidence emitted for a finding nuclei gave none for", kind)
-		}
-	}
-	if _, ok := ev[evidenceProtocol]; !ok {
-		t.Errorf("protocol evidence missing; nuclei did report type=http for this line")
-	}
-}
-
 // TestDescribe_MemoryHeadroom locks the sandbox memory the daemon gives nuclei.
 // 1Gi OOM-killed nuclei in the Firecracker guest on staging (gibson#1356), so
 // the hint must not fall back below 2Gi.
@@ -223,5 +121,141 @@ func TestDescribe_MemoryHeadroom(t *testing.T) {
 func TestExecute_RaisesAddressSpaceCeiling(t *testing.T) {
 	if nucleiAddressSpaceBytes <= sandbox.DefaultConfig().MemoryBytes {
 		t.Fatalf("nucleiAddressSpaceBytes %d must exceed the default RLIMIT_AS %d", nucleiAddressSpaceBytes, sandbox.DefaultConfig().MemoryBytes)
+	}
+}
+
+// evidenceByKind indexes the evidence items of one finding by the metadata key
+// "kind".
+func evidenceByKind(disc *graphragpb.DiscoveryResult, findingID string) map[string]*typespb.Evidence {
+	out := map[string]*typespb.Evidence{}
+	for _, fe := range disc.GetFindingEvidence() {
+		if fe.GetFindingId() == findingID {
+			out[fe.GetEvidence().GetMetadata()["kind"]] = fe.GetEvidence()
+		}
+	}
+	return out
+}
+
+// TestParseJSONLines_EvidenceCarriesTheProof is gibson-executor#89.
+//
+// The curl command, the extracted results, the CWE ids and the CVSS vector of
+// nuclei have no field on the graphrag Finding. They travel as evidence items
+// of the finding. The parser sets no tier and no tool call ID.
+func TestParseJSONLines_EvidenceCarriesTheProof(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "simple.jsonl"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	disc, _, err := parseJSONLines(raw)
+	if err != nil {
+		t.Fatalf("parseJSONLines: %v", err)
+	}
+
+	leak := disc.Findings[2]
+	if leak.Title != "Server version disclosed in response headers" {
+		t.Fatalf("finding[2].title = %q", leak.Title)
+	}
+	ev := evidenceByKind(disc, leak.GetId())
+
+	repro, ok := ev[evidenceReproduction]
+	if !ok {
+		t.Fatalf("no %s evidence; the finding cannot be reproduced", evidenceReproduction)
+	}
+	if !strings.Contains(repro.GetContent(), "curl -X 'GET'") {
+		t.Errorf("reproduction content = %q; want the curl command", repro.GetContent())
+	}
+	if repro.GetType() != typespb.EvidenceType_EVIDENCE_TYPE_REQUEST {
+		t.Errorf("reproduction type = %v; want REQUEST", repro.GetType())
+	}
+	if got := repro.GetMetadata()["url"]; got != "http://scanme.nmap.org/static/app.js" {
+		t.Errorf("reproduction url = %q; want matched-at", got)
+	}
+
+	extracted, ok := ev[evidenceExtracted]
+	if !ok {
+		t.Fatalf("no %s evidence; the matched values are the proof", evidenceExtracted)
+	}
+	for _, want := range []string{"Apache/2.4.49 (Unix)", "X-Powered-By: PHP/5.6.40"} {
+		if !strings.Contains(extracted.GetContent(), want) {
+			t.Errorf("extracted content %q does not carry %q", extracted.GetContent(), want)
+		}
+	}
+	if extracted.GetType() != typespb.EvidenceType_EVIDENCE_TYPE_RESPONSE {
+		t.Errorf("extracted type = %v; want RESPONSE", extracted.GetType())
+	}
+
+	if got := ev[evidenceCWE].GetContent(); got != "CWE-200,CWE-497" {
+		t.Errorf("cwe evidence = %q; want both ids in the order of nuclei", got)
+	}
+	if got := ev[evidenceCVSSVector].GetContent(); got != "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N" {
+		t.Errorf("cvss vector evidence = %q", got)
+	}
+	if got := ev[evidenceProtocol].GetContent(); got != "http" {
+		t.Errorf("protocol evidence = %q; want http", got)
+	}
+
+	// The parser never sets the tier or the tool call ID. The daemon does.
+	// Every item must name a finding that is in the result.
+	ids := map[string]bool{}
+	for _, f := range disc.Findings {
+		ids[f.GetId()] = true
+	}
+	for _, fe := range disc.GetFindingEvidence() {
+		e := fe.GetEvidence()
+		if e.GetTier() != typespb.EvidenceTier_EVIDENCE_TIER_UNSPECIFIED || e.GetToolCallId() != "" {
+			t.Errorf("evidence %q has a tier or a tool call id that the parser set", e.GetTitle())
+		}
+		if !ids[fe.GetFindingId()] {
+			t.Errorf("evidence %q points at finding %q, which is not in the result", e.GetTitle(), fe.GetFindingId())
+		}
+	}
+}
+
+// TestParseJSONLines_FindingIDIsStable pins that the finding ID, which the
+// evidence uses as its key, is the same for the same tool output.
+func TestParseJSONLines_FindingIDIsStable(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "simple.jsonl"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	a, _, err := parseJSONLines(raw)
+	if err != nil {
+		t.Fatalf("parseJSONLines: %v", err)
+	}
+	b, _, err := parseJSONLines(raw)
+	if err != nil {
+		t.Fatalf("parseJSONLines: %v", err)
+	}
+	if len(a.Findings) == 0 || len(a.Findings) != len(b.Findings) {
+		t.Fatalf("findings: %d and %d", len(a.Findings), len(b.Findings))
+	}
+	for i := range a.Findings {
+		if a.Findings[i].GetId() == "" || a.Findings[i].GetId() != b.Findings[i].GetId() {
+			t.Errorf("finding[%d] id %q and %q differ or are empty", i, a.Findings[i].GetId(), b.Findings[i].GetId())
+		}
+	}
+}
+
+// TestParseJSONLines_NoEvidenceWhenNucleiGaveNone keeps the mapping honest in
+// the other direction. The exposed-panel fixture line carries no curl command,
+// no extracted results and no classification, so it must produce no evidence
+// but the protocol. An empty item would assert proof that does not exist.
+func TestParseJSONLines_NoEvidenceWhenNucleiGaveNone(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "simple.jsonl"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	disc, _, err := parseJSONLines(raw)
+	if err != nil {
+		t.Fatalf("parseJSONLines: %v", err)
+	}
+	ev := evidenceByKind(disc, disc.Findings[1].GetId())
+	for _, kind := range []string{evidenceReproduction, evidenceExtracted, evidenceCWE, evidenceCVSSVector} {
+		if _, ok := ev[kind]; ok {
+			t.Errorf("%s evidence emitted for a finding nuclei gave none for", kind)
+		}
+	}
+	if _, ok := ev[evidenceProtocol]; !ok {
+		t.Errorf("protocol evidence missing; nuclei did report type=http for this line")
 	}
 }

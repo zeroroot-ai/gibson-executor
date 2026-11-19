@@ -1,6 +1,6 @@
 module github.com/zeroroot-ai/gibson-executor
 
-go 1.27.3
+go 1.27.4
 
 // v1.0.0 was published in error by an early release-please run (2026-05-10),
 // long before the current 0.10x line and with no pre-1.0 sign-off. It hijacks
@@ -11,7 +11,7 @@ retract v1.0.0
 
 require (
 	github.com/Ullaakut/nmap/v3 v3.1.0
-	github.com/zeroroot-ai/sdk v0.209.1
+	github.com/zeroroot-ai/sdk v0.210.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0

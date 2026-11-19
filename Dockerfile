@@ -357,7 +357,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # backward would pass MVS and only show up in the shipped binary. Failing here
 # beats finding it in a scan of a published image. The stdlib is current by the
 # pinned builder toolchain (GOTOOLCHAIN=local), so it needs no separate check.
-ARG KUBECTL_XNET_FLOOR=v0.61.0
+ARG KUBECTL_XNET_FLOOR=v0.62.0
 ARG KUBECTL_XTEXT_FLOOR=v0.43.0
 RUN set -eux; \
     linked() { go version -m /out/kubectl | awk -v m="$1" '$1 == "dep" && $2 == m { print $3 }' | head -1; }; \

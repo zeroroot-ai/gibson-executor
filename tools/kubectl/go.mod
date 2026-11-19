@@ -3,7 +3,7 @@ module github.com/zeroroot-ai/gibson-executor/tools/kubectl
 go 1.27.4
 
 require (
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/text v0.43.0
 	k8s.io/client-go v0.37.2
 	k8s.io/component-base v0.37.2

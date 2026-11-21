@@ -16,13 +16,12 @@ import (
 // DaemonProbe checks whether the Gibson daemon callback address is reachable
 // via TCP. It implements readiness.Probe from platform-clients.
 //
-// The address is resolved from GIBSON_DAEMON_ADDRESS (defaulting to
-// localhost:50002), matching the daemonclient resolution logic so the probe
-// tests the same endpoint the gRPC client will dial.
+// The address comes from GIBSON_DAEMON_ADDRESS. When the variable is unset,
+// the probe uses localhost:50002.
 //
-// A TCP-level check is used because the tool runner is stateless and does not
-// hold a persistent gRPC connection; a dial attempt is the lightest signal
-// that Envoy/the daemon is up and accepting connections.
+// The check is a TCP dial because the tool runner holds no gRPC connection and
+// no credential. A dial is the lightest signal that the address accepts
+// connections. The probe sends no data.
 type DaemonProbe struct {
 	addr    string
 	timeout time.Duration
@@ -67,7 +66,7 @@ func (p *DaemonProbe) Check(ctx context.Context) error {
 }
 
 // resolveDaemonAddr returns the daemon address from GIBSON_DAEMON_ADDRESS, or
-// the default localhost:50002 — same resolution as daemonclient.GetDaemonAddress.
+// the default localhost:50002 when the variable is unset.
 func resolveDaemonAddr() string {
 	if addr := os.Getenv("GIBSON_DAEMON_ADDRESS"); addr != "" {
 		return addr

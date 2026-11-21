@@ -8,9 +8,9 @@ version: "1.0.0"
 rules:
   - id: tool-runner-auth-001
     description: |
-      No legacy auth references. The tool runner authenticates via
-      Zitadel client_credentials only; gsk_ API keys, BetterAuth, HMAC
-      identity headers, and TrustLocalhost are all deleted.
+      No legacy auth references. The tool runner holds no credential of
+      its own. The gsk_ API keys, BetterAuth, HMAC identity headers and
+      TrustLocalhost are all deleted.
     scope:
       - "**/*.go"
       - "**/*.md"
@@ -26,40 +26,42 @@ rules:
       target: "(gsk_|GSK_API_KEY|HMAC|x-gibson-identity-mac|BetterAuth|better-auth|BETTER_AUTH|TrustLocalhost)"
     severity: error
     message: |
-      Use Zitadel client_credentials via auth.ConnectDaemon. The legacy
-      stack is gone; reintroducing any of these patterns reopens the
-      audit findings the spec closed.
+      The legacy stack is gone. A new use of any of these patterns
+      reopens the audit findings the spec closed. Read docs/auth.md.
     enforced_by:
       - "script:scripts/check-no-legacy-auth.sh"
       - "ci:tool-runner-make-check"
 
   - id: tool-runner-auth-002
     description: |
-      The Zitadel service-account credentials must be loaded from env
-      (ZITADEL_TOOL_RUNNER_CLIENT_ID / _SECRET / ZITADEL_ISSUER), which
-      a Helm-mounted Secret materialises at pod start. They must NOT
-      be read from a local file, baked into the image, or echoed to a
-      log line.
+      A declared secret VALUE comes only from the environment, through
+      registry.DeclaredSecret and the sdk secretenv.Lookup. The daemon
+      sets it at dispatch. A parser must NOT read a credential value
+      from the tool input, and must NOT write the value to a log line.
+      The pattern below catches only a log call that names the
+      GIBSON_SECRET_ prefix. It does not catch a value held in a
+      variable, such as the Wrong example in docs/forbidden-patterns.md.
+      Review catches that case.
     scope:
       - "**/*.go"
     exempt:
       - "**/*_test.go"
     pattern:
       kind: forbidden_call
-      target: "(fmt\\.Print[fl]?n?|log\\.|slog\\.).*CLIENT_SECRET"
+      target: "(fmt\\.Print[fl]?n?|log\\.|slog\\.).*GIBSON_SECRET_"
     severity: error
     message: |
-      Sanitize the log line. The secret enters via env and stays in
-      the OIDC client; it is never spoken aloud.
+      The tool input is stored with the tool call, so it carries only
+      the secret name. Log the name, never the value.
     enforced_by:
       - "manual"
 
   - id: tool-runner-auth-003
     description: |
       The tool runner must NOT import the daemon module
-      (github.com/zeroroot-ai/gibson). It depends on the SDK only —
-      proto types, daemonclient, capabilitygrant. Importing the daemon
-      would re-create the cyclic boundary the polyrepo avoids.
+      (github.com/zeroroot-ai/gibson). It depends on the SDK only: the
+      generated proto types, extraction and secretenv. An import of the
+      daemon would make the cyclic boundary that the polyrepo avoids.
     scope:
       - "**/*.go"
       - "go.mod"
@@ -75,29 +77,11 @@ rules:
       - "manual"
       - "ci:tool-runner-make-check"
 
-  - id: tool-runner-auth-004
-    description: |
-      auth.ConnectDaemon must remain the single entry point that wires
-      OIDC env vars and dials the daemon. Splitting the wiring into
-      multiple call sites makes credential plumbing harder to audit.
-    scope:
-      - "internal/auth/**/*.go"
-      - "cmd/**/*.go"
-    pattern:
-      kind: required_call
-      target: "auth\\.ConnectDaemon"
-    severity: error
-    message: |
-      Use auth.ConnectDaemon(ctx) — it owns env translation + dial in
-      one place. Don't replicate the daemonclient.New wiring inline.
-    enforced_by:
-      - "manual"
-
   - id: tool-runner-auth-005
     description: |
-      SPIFFE detection is auto via the SDK; the tool runner must NOT
-      read SPIFFE_ENDPOINT_SOCKET or call go-spiffe APIs directly.
-      Subject identity is always Zitadel.
+      The tool runner has no SPIFFE identity. It runs as a Setec microVM
+      guest with no ClusterSPIFFEID, and it dials no daemon RPC. It must
+      NOT read SPIFFE_ENDPOINT_SOCKET or call go-spiffe APIs.
     scope:
       - "**/*.go"
     exempt:
@@ -109,9 +93,8 @@ rules:
         - "github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
     severity: error
     message: |
-      Use daemonclient.New (or future agent.Connect) — it composes
-      SPIFFE detection automatically. Direct Workload API calls bypass
-      that contract.
+      A runner identity is a new design. Write an ADR in docs/adr/
+      before you add one. Read docs/auth.md.
     enforced_by:
       - "manual"
 

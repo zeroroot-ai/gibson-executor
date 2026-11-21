@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.116.0](https://github.com/zeroroot-ai/gibson-executor/compare/v0.115.2...v0.116.0) (2026-11-21)
+
+
+### Features
+
+* **parsers:** add the skill-script tool ([#202](https://github.com/zeroroot-ai/gibson-executor/issues/202)) ([4e91a21](https://github.com/zeroroot-ai/gibson-executor/commit/4e91a212db22fb33a2d98e1f937338504a399a25))
+
 ## [0.115.2](https://github.com/zeroroot-ai/gibson-executor/compare/v0.115.1...v0.115.2) (2026-11-19)
 
 

@@ -67,7 +67,7 @@ jobs:
           echo "major=${MAJOR}" >> "$GITHUB_OUTPUT"
 
       - name: log in to GHCR
-        uses: zeroroot-ai/.github/.github/actions/ghcr-login@a88e99f641209c147aad6cbd3b6d62c2764485ca # v0.21.3
+        uses: zeroroot-ai/.github/.github/actions/ghcr-login@88cbc77697ff7143c98f29f3c4d80a93a666d601 # v0.23.0
         with:
           password: ${{ secrets.GITHUB_TOKEN }}
 

@@ -31,9 +31,6 @@ The threat: a malicious or compromised mission spec can use a
 plain-looking tool invocation to read or write any file the tool has
 access to inside the guest, including:
 
-- The process environment (`/proc/self/environ`). A tool child inherits
-  the runner environment, which holds the call input and the values of
-  the declared secrets (`GIBSON_SECRET_*`).
 - A file that a parser writes from a declared secret, such as a kubeconfig.
 - The Agent Skill files below `/setec/files`.
 
@@ -60,7 +57,7 @@ Registering one clears the other.
 The open policy (`internal/policy/deny.go`) denies only the flags in its
 `DenySet`. Each denied flag has one class: it writes a caller-named file,
 reads a caller-named file, runs caller scripts, involves a third-party
-machine, or forges packets. New tools use the open policy. Read
+machine, or forges packets or alters privilege. New tools use the open policy. Read
 [`docs/tool-args-policy.md`](docs/tool-args-policy.md) before you write a
 `policy.go`.
 
@@ -218,8 +215,7 @@ check and a size limit. The tool also applies these controls:
 
 - The target must be a clean relative path inside `/setec/files`.
 - The script runs from an argv, with a clean environment.
-- The runner makes itself non-dumpable first, so the script cannot read
-  `/proc/<runner>/environ`.
+- The runner makes itself non-dumpable before it starts the script.
 - Each output stream is capped at 1 MiB, and the response says when the
   tool cut it.
 
@@ -323,7 +319,7 @@ to set env vars on. Per ADR-0052, `gibson-executor` runs as a **Setec
 microVM guest** that the Gibson daemon launches. A comment in
 `helm/gibson-workloads/values.yaml` in `zeroroot-ai/charts` says the same:
 the image "runs only as a setec microVM guest image launched by the
-daemon" and "holds no Zitadel machine user".
+daemon's catalog refresher" and "holds no Zitadel machine user".
 The only override surface today is the sandbox launch environment
 itself: `TOOL_RUNNER_OUTPUT_CAP_BYTES`, `TOOL_RUNNER_MEMORY_BYTES`, and
 `TOOL_RUNNER_SELF_MEMORY_BYTES`. The daemon sets the guest environment in
@@ -343,8 +339,9 @@ resource limits belong to the image or the deployment.
 - **Authorization of the target.** Validation proves the target is a
   well-formed address, prefix, name or URL — not that the caller is
   entitled to scan it. Scope authorization stays with the daemon.
-- **Network rate-limiting.** The microVM egress limit and the per-tool
-  `CatalogEntry.Resources` hints control it, not this package.
+- **Network rate-limiting.** The microVM egress allowlist limits where
+  traffic goes. The per-tool `CatalogEntry.Resources` hints limit the
+  resources. This package does not rate-limit.
 - **Wall-clock budget across calls.** Each call is individually bounded
   (see "Per-call deadline" above), but the runner does not track a budget
   spanning calls.

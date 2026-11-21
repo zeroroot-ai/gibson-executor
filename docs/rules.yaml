@@ -38,6 +38,10 @@ rules:
       registry.DeclaredSecret and the sdk secretenv.Lookup. The daemon
       sets it at dispatch. A parser must NOT read a credential value
       from the tool input, and must NOT write the value to a log line.
+      The pattern below catches only a log call that names the
+      GIBSON_SECRET_ prefix. It does not catch a value held in a
+      variable, such as the Wrong example in docs/forbidden-patterns.md.
+      Review catches that case.
     scope:
       - "**/*.go"
     exempt:

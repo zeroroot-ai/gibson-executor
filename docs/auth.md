@@ -43,8 +43,8 @@ A tool error goes back inside `CallToolResponse.error`. If the image has no
 parser for the tool name, the runner writes `===GIBSON_TOOL_ERROR===` and a
 message instead, and exits with code 4. The SDK
 package `toolrunner` (sdk v0.212.0) documents the same ABI for SDK tools.
-This repository does not import that package. It uses only the generated
-proto types from `github.com/zeroroot-ai/sdk/api/gen`.
+This repository does not import that package. For the ABI, it uses only the
+generated proto types from `github.com/zeroroot-ai/sdk/api/gen`.
 
 ## Declared secrets
 

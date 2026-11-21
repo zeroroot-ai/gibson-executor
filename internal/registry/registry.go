@@ -38,6 +38,9 @@ type ExecuteResponse struct {
 	Stderr       []byte
 	ParseQuality ParseQuality
 	Discovery    *graphragpb.DiscoveryResult
+	// OutputJSON, when set, is the output_json of the response in place of
+	// the Discovery. A tool whose result is not a graph discovery uses it.
+	OutputJSON string
 }
 
 // ParseQuality mirrors gibson.component.v1.ParseQuality.

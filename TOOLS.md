@@ -14,6 +14,11 @@ most take <200 LOC.
 ## Shipping today (v0.1)
 
 - 🟢 nmap — Host/Port/Service
+- 🟢 skill-script — runs a script of a loaded Agent Skill that the sandbox
+  launch placed below `/setec/files`. Not a graph tool: the output is the exit
+  code, stdout and stderr of the script. The sandbox is the boundary, so the
+  script has the egress limit of the agent that called it. The script runs
+  with a clean environment.
 - 🟢 httpx — Endpoint/Service/Technology, plus a Finding per missing or
   wrong security response header (HSTS, CSP, nosniff, frame-options,
   referrer-policy)

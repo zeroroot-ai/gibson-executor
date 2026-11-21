@@ -104,3 +104,37 @@ func TestValidateHostname(t *testing.T) {
 		t.Fatal("empty hostname accepted")
 	}
 }
+
+func TestValidateTarget_SkillScript(t *testing.T) {
+	cases := []struct {
+		target string
+		wantOK bool
+	}{
+		{"skill/scripts/run.sh", true},
+		{"my-skill_1/a.b/run-2.sh", true},
+		{"skill", false},
+		{"/skill/run.sh", false},
+		{"skill/../etc/passwd", false},
+		{"../skill/run.sh", false},
+		{"skill//run.sh", false},
+		{"skill/./run.sh", false},
+		{"skill/run.sh/", false},
+		{"-skill/run.sh", false},
+		{"skill/-run.sh", false},
+		{"skill/run sh", false},
+		{"skill/run;sh", false},
+		{"skill/run$sh", false},
+		{"skill/rün.sh", false},
+		{"skill/" + strings.Repeat("a", maxSkillScriptLen), false},
+		{"https://example.com/a", false},
+	}
+	for _, tc := range cases {
+		err := ValidateTarget(tc.target, TargetSkillScript)
+		if (err == nil) != tc.wantOK {
+			t.Errorf("ValidateTarget(%q) = %v, want ok=%t", tc.target, err, tc.wantOK)
+		}
+	}
+	if err := ValidateTarget("skill/run.sh", TargetHost); err == nil {
+		t.Error("a host-only tool accepted a skill script path")
+	}
+}

@@ -449,3 +449,17 @@ func TestWithOutputTail_BoundsAChattyTool(t *testing.T) {
 		t.Errorf("message is %d bytes; the cap is %d plus the prefix", len(got), outputTailBytes)
 	}
 }
+
+// TestRunnerOwnedToolsAreCatalogued keeps the list of runner-owned tools honest:
+// a name that no parser registers is a stale entry that would hide a tool.
+func TestRunnerOwnedToolsAreCatalogued(t *testing.T) {
+	catalogued := map[string]bool{}
+	for _, n := range cataloguedToolNames() {
+		catalogued[n] = true
+	}
+	for name := range runnerOwnedTools {
+		if !catalogued[name] {
+			t.Errorf("runnerOwnedTools names %q, which no parser registers", name)
+		}
+	}
+}

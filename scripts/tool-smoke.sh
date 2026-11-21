@@ -117,6 +117,10 @@ CASES=(
   'trivy::{"target":"@SCANIMAGE@"}::[.custom_nodes[]? | select(.node_type=="Package")] | length::'
   'kube-bench::{"target":"smoke-cluster"}::ERROR:kubeconfig::'
   'trivy-k8s::{"target":"smoke-cluster"}::ERROR:kubeconfig::'
+  # skill-script runs a file that the sandbox launch places below /setec/files.
+  # The case mounts a folder there the way setec places the files of an Agent
+  # Skill, and asserts that the script ran and its stdout came back.
+  'skill-script::{"target":"smoke/scripts/hello.sh","args":["world"]}::.stdout | length::-v @HERE@/skill-smoke:/setec/files/smoke:ro'
 )
 
 # split_case populates the globals CASE_NAME/CASE_INPUT/CASE_EXPR/CASE_EXTRA

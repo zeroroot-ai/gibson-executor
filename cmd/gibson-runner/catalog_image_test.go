@@ -95,6 +95,10 @@ func TestCatalogAndImageAgree(t *testing.T) {
 	}
 
 	for _, name := range sortedKeys(catalogued) {
+		if runnerOwnedTools[name] {
+			// The runner runs the tool itself. There is no binary to install.
+			continue
+		}
 		bin := binaryFor(name)
 		if !installed[bin] {
 			t.Errorf("parser %q is in the catalog but the Dockerfile installs no %q binary.\n"+

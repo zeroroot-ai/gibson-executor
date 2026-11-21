@@ -23,6 +23,7 @@
 package policy
 
 import (
+	"errors"
 	"fmt"
 	"net/netip"
 	"net/url"
@@ -52,6 +53,11 @@ const (
 	// repository path separators, the colon is a tag (or a registry
 	// port), and nothing here is ever dialled.
 	TargetImageRef
+	// TargetSkillScript permits the relative path of a script that the
+	// sandbox launch placed below the skill directory: "<skill>/<path>".
+	// Like an image reference it is its own syntax, and a tool that accepts
+	// it accepts nothing else.
+	TargetSkillScript
 )
 
 // Convenience sets naming the three shapes the current parsers need.
@@ -105,6 +111,9 @@ func ValidateTarget(target string, kinds TargetKind) error {
 	// image references accepts nothing else, so this branch is exclusive.
 	if kinds&TargetImageRef != 0 {
 		return validateImageRef(target)
+	}
+	if kinds&TargetSkillScript != 0 {
+		return validateSkillScript(target)
 	}
 
 	// Most specific form first: a scheme means it can only be a URL.
@@ -274,6 +283,9 @@ func describeKinds(kinds TargetKind) string {
 	if kinds&TargetURL != 0 {
 		parts = append(parts, "an http(s) URL")
 	}
+	if kinds&TargetSkillScript != 0 {
+		parts = append(parts, "the path of a skill script")
+	}
 	if len(parts) == 0 {
 		return "no target syntax"
 	}
@@ -399,6 +411,41 @@ func validateImageNameComponent(ref, part string) error {
 			return fmt.Errorf("image reference %q contains an uppercase character; OCI repository names are lowercase", ref)
 		default:
 			return fmt.Errorf("image reference %q contains a disallowed character", ref)
+		}
+	}
+	return nil
+}
+
+// maxSkillScriptLen caps the path of a skill script. It matches the cap that
+// the sandbox launch puts on a placed path.
+const maxSkillScriptLen = 512
+
+// validateSkillScript checks the path of a placed skill script: relative,
+// clean, with at least two elements (the skill and the file), and made of
+// letters, digits and the characters ".", "_" and "-". The set is narrower
+// than what a skill can hold, so a path that needs a quote or an escape is
+// refused here and never reaches an exec.
+func validateSkillScript(target string) error {
+	if len(target) > maxSkillScriptLen {
+		return fmt.Errorf("skill script path is %d bytes; limit is %d", len(target), maxSkillScriptLen)
+	}
+	parts := strings.Split(target, "/")
+	if len(parts) < 2 {
+		return errors.New("skill script path must name the skill and the file: <skill>/<path>")
+	}
+	for _, el := range parts {
+		switch el {
+		case "", ".", "..":
+			return errors.New("skill script path must be clean: no empty, \".\" or \"..\" element")
+		}
+		if strings.HasPrefix(el, "-") {
+			return fmt.Errorf("skill script path element %q begins with %q", el, "-")
+		}
+		for _, r := range el {
+			ok := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-'
+			if !ok {
+				return fmt.Errorf("skill script path holds the character %q; allowed are letters, digits, \".\", \"_\" and \"-\"", r)
+			}
 		}
 	}
 	return nil

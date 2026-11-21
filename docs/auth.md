@@ -23,7 +23,7 @@ reads a client secret.
 |---|---|---|
 | default (no flag) | `GIBSON_TOOL_NAME`, `GIBSON_TOOL_INPUT_B64`, declared secrets | Only the tool target. The tool binary makes this traffic. |
 | `--list-tools` | Nothing | Nothing. It prints the JSON catalog to stdout. |
-| `--verify-tools` | `PATH` | Nothing. It checks that each catalogued binary is on `PATH`. |
+| `--verify-tools` | `PATH` | Nothing. It checks that each binary in the catalog is on `PATH`. |
 | `--serve` | `GIBSON_DAEMON_ADDRESS`, `RUNNER_HEALTH_ADDR`, `OTEL_*` | A TCP dial to the daemon address for `/readyz`, and the OTel collector. |
 
 ## The tool call ABI

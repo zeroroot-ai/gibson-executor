@@ -18,7 +18,12 @@ most take <200 LOC.
   launch placed below `/setec/files`. Not a graph tool: the output is the exit
   code, stdout and stderr of the script. The sandbox is the boundary, so the
   script has the egress limit of the agent that called it. The script runs
-  with a clean environment.
+  with a clean environment, and the runner is non-dumpable, so the script
+  cannot read `/proc/<runner>/environ` or write to the output channel of the
+  runner. Each stream (stdout, stderr) is cut at 1 MiB, and `stdout_truncated`
+  and `stderr_truncated` say so. A stream that is not valid UTF-8 comes back as
+  base64, and `stdout_encoding` and `stderr_encoding` say `base64` or `utf-8`.
+  The runner stops the whole process group of the script when the script ends.
 - 🟢 httpx — Endpoint/Service/Technology, plus a Finding per missing or
   wrong security response header (HSTS, CSP, nosniff, frame-options,
   referrer-policy)

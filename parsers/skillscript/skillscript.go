@@ -21,13 +21,18 @@
 //   - the file must be a regular file with an execute bit, found without a
 //     symbolic link on the way out of the directory;
 //   - the script runs from an argv, never from a shell string, with a clean
-//     environment: the runner's own environment holds the call input and any
-//     secret that the daemon gave the tool, and the script gets none of it;
-//   - the output is capped, and the call has the deadline of the runner.
+//     environment. The runner also makes itself non-dumpable before it starts
+//     the script, so the script, which has the same uid, cannot read
+//     /proc/<runner>/environ (the call input and the secrets of the call) and
+//     cannot write to /proc/<runner>/fd/1 (the output channel of the runner);
+//   - the output is capped at 1 MiB for each stream and says when it was cut,
+//     and the call has the deadline of the runner;
+//   - the deadline, and the end of the script, stop its whole process group.
 package skillscript
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +43,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/zeroroot-ai/gibson-executor/internal/policy"
 	"github.com/zeroroot-ai/gibson-executor/internal/registry"
@@ -54,7 +60,16 @@ const (
 
 	// maxArgsBytes bounds the argv of the script. It is a size bound only.
 	maxArgsBytes = 64 << 10
+
+	// maxStreamBytes caps each of stdout and stderr. The runner cap is far
+	// larger than an agent can use, and the JSON and ABI encodings can grow
+	// the text several times.
+	maxStreamBytes = 1 << 20
 )
+
+// protectRunner makes the runner non-dumpable. It is a variable so that the
+// test can show what the script reads without it.
+var protectRunner = setNonDumpable
 
 func init() {
 	registry.Register(&parser{root: filesRoot})
@@ -89,11 +104,32 @@ func (p *parser) Describe() registry.CatalogEntry {
 	}
 }
 
-// result is the output_json of a call.
+// result is the output_json of a call. Each stream is text in UTF-8, or the
+// base64 of the bytes when they are not valid UTF-8, and its encoding says
+// which. A stream that passed the cap is cut, and its truncated flag is set.
 type result struct {
-	ExitCode int32  `json:"exit_code"`
-	Stdout   string `json:"stdout"`
-	Stderr   string `json:"stderr"`
+	ExitCode        int32  `json:"exit_code"`
+	Stdout          string `json:"stdout"`
+	StdoutEncoding  string `json:"stdout_encoding"`
+	StdoutTruncated bool   `json:"stdout_truncated"`
+	Stderr          string `json:"stderr"`
+	StderrEncoding  string `json:"stderr_encoding"`
+	StderrTruncated bool   `json:"stderr_truncated"`
+}
+
+// stream returns the text of a captured stream, its encoding and whether it
+// was cut. A cut that falls inside a character drops that partial character.
+func stream(b []byte, truncated bool) (text, encoding string, cut bool) {
+	if truncated && !utf8.Valid(b) {
+		// Drop at most the bytes of one partial character at the cut.
+		for i := 0; i < utf8.UTFMax-1 && len(b) > 0 && !utf8.Valid(b); i++ {
+			b = b[:len(b)-1]
+		}
+	}
+	if utf8.Valid(b) {
+		return string(b), "utf-8", truncated
+	}
+	return base64.StdEncoding.EncodeToString(b), "base64", truncated
 }
 
 // Execute runs the script. A script that exits with a non-zero code is a
@@ -115,8 +151,8 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 
 	sbCfg := sandbox.DefaultConfig()
 	var stdout, stderr sandbox.CappedBuffer
-	stdout.Init(sbCfg.OutputCapBytes)
-	stderr.Init(sbCfg.OutputCapBytes)
+	stdout.Init(maxStreamBytes)
+	stderr.Init(maxStreamBytes)
 	cmd := exec.CommandContext(ctx, script, req.Args...)
 	cmd.Dir = filepath.Dir(script)
 	cmd.Env = cleanEnv()
@@ -129,19 +165,22 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 	// only the script, and the call does not wait for a child that holds a pipe.
 	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 	cmd.WaitDelay = 2 * time.Second
+	// The script has the uid of the runner, so the runner must not be
+	// readable or writable through /proc while the script runs.
+	if err := protectRunner(); err != nil {
+		return failed, fmt.Errorf("skill-script: protect the runner: %w", err)
+	}
 	runErr := cmd.Run()
+	// A background child of the script does not outlive the call.
+	if cmd.Process != nil {
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
 
 	resp := &registry.ExecuteResponse{Stdout: stdout.Bytes(), Stderr: stderr.Bytes(), ParseQuality: registry.ParseQualityRaw}
 	if cmd.ProcessState != nil {
 		if code := cmd.ProcessState.ExitCode(); code >= math.MinInt32 && code <= math.MaxInt32 {
 			resp.ExitCode = int32(code)
 		}
-	}
-	if err := stdout.Err(); err != nil {
-		return resp, fmt.Errorf("skill-script stdout: %w", err)
-	}
-	if err := stderr.Err(); err != nil {
-		return resp, fmt.Errorf("skill-script stderr: %w", err)
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return resp, fmt.Errorf("skill-script stopped: %w", ctxErr)
@@ -150,7 +189,10 @@ func (p *parser) Execute(ctx context.Context, req registry.ExecuteRequest) (*reg
 	if runErr != nil && !errors.As(runErr, &exitErr) {
 		return resp, fmt.Errorf("skill-script exec: %w", runErr)
 	}
-	out, err := json.Marshal(result{ExitCode: resp.ExitCode, Stdout: string(resp.Stdout), Stderr: string(resp.Stderr)})
+	res := result{ExitCode: resp.ExitCode}
+	res.Stdout, res.StdoutEncoding, res.StdoutTruncated = stream(resp.Stdout, stdout.Err() != nil)
+	res.Stderr, res.StderrEncoding, res.StderrTruncated = stream(resp.Stderr, stderr.Err() != nil)
+	out, err := json.Marshal(res)
 	if err != nil {
 		return resp, fmt.Errorf("skill-script output: %w", err)
 	}

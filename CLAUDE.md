@@ -35,6 +35,6 @@ make list-tools     # run bin/gibson-runner --list-tools
 
 - Org-level workflow and PR rules: [`AGENTS.md`](https://github.com/zeroroot-ai/.github/blob/main/AGENTS.md)
 - Tool argument policy (open by default, denied by capability class): [`docs/tool-args-policy.md`](docs/tool-args-policy.md) — read this BEFORE authoring a `parsers/<tool>/policy.go`. Do not inventory a tool's flags.
-- Auth calls: [`docs/auth.md`](docs/auth.md), [`docs/how-to-add-an-auth-call.md`](docs/how-to-add-an-auth-call.md)
+- Auth model (the runner holds no credential): [`docs/auth.md`](docs/auth.md)
 - Forbidden patterns: [`docs/forbidden-patterns.md`](docs/forbidden-patterns.md), machine-readable in [`docs/rules.yaml`](docs/rules.yaml)
 - Code-scanning dismissals: [`docs/code-scanning-dismissals.md`](docs/code-scanning-dismissals.md)

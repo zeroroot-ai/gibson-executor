@@ -299,6 +299,26 @@ func copyFile(t *testing.T, src, dst string) {
 	}
 }
 
+// blockingDir returns the first directory on the path of dir, from the top,
+// that other users cannot search, or "" when every directory allows it. It
+// only reads the modes and changes nothing.
+func blockingDir(dir string) string {
+	var chain []string
+	for d := filepath.Clean(dir); ; d = filepath.Dir(d) {
+		chain = append(chain, d)
+		if d == filepath.Dir(d) {
+			break
+		}
+	}
+	for i := len(chain) - 1; i >= 0; i-- {
+		fi, err := os.Stat(chain[i])
+		if err != nil || fi.Mode().Perm()&0o001 == 0 {
+			return chain[i]
+		}
+	}
+	return ""
+}
+
 // attack runs the helper runner in a mode and returns what the script read
 // from the environment of its parent, and what the script wrote to the
 // standard output of its parent. Everything the runner touches is in one
@@ -306,12 +326,20 @@ func copyFile(t *testing.T, src, dst string) {
 // nobody, so the control run never depends on who runs the test.
 func attack(t *testing.T, mode string) (read, channel string) {
 	t.Helper()
-	shared := t.TempDir()
-	// The directories of the temporary tree are private to the user of the
-	// test. Open them, up to the temporary directory, so that nobody can enter.
-	for d := shared; d != filepath.Dir(d) && d != os.TempDir(); d = filepath.Dir(d) {
-		if err := os.Chmod(d, dirMode); err != nil {
-			t.Fatal(err)
+	// One directory that any user can enter. MkdirTemp makes it in the
+	// temporary directory, which any user can enter, so no parent changes.
+	shared, err := os.MkdirTemp("", "skillscript-attack")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(shared) })
+	if err := os.Chmod(shared, dirMode); err != nil {
+		t.Fatal(err)
+	}
+	if os.Geteuid() == 0 {
+		// The helper runs as nobody. Say so plainly when it cannot enter.
+		if blocked := blockingDir(shared); blocked != "" {
+			t.Fatalf("uid %d cannot enter %s because %s has no search permission for others, so the control run cannot start; set TMPDIR to a directory that every user can enter", nobody, shared, blocked)
 		}
 	}
 	root := placeIn(t, filepath.Join(shared, "files"), map[string]file{"skill/attack.sh": {

@@ -38,6 +38,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -67,6 +68,7 @@ import (
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/naabu"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/nmap"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/nuclei"
+	_ "github.com/zeroroot-ai/gibson-executor/parsers/skillscript"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/subfinder"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/tlsx"
 	_ "github.com/zeroroot-ai/gibson-executor/parsers/trivy"
@@ -152,6 +154,7 @@ func runListTools() {
 func runVerifyTools() {
 	names := cataloguedToolNames()
 	var missing []string
+	names = slices.DeleteFunc(names, func(n string) bool { return runnerOwnedTools[n] })
 	for _, name := range names {
 		if _, err := exec.LookPath(name); err != nil {
 			missing = append(missing, name)
@@ -168,6 +171,11 @@ func runVerifyTools() {
 		os.Exit(1)
 	}
 }
+
+// runnerOwnedTools are catalogued tools that the runner runs itself, with no
+// binary in the image. skill-script execs a file that the sandbox launch
+// placed, so there is nothing to install and nothing to find on PATH.
+var runnerOwnedTools = map[string]bool{"skill-script": true}
 
 // cataloguedToolNames returns the tool name of every registered parser.
 //
@@ -354,6 +362,10 @@ func runDefault() {
 	// Marshal the DiscoveryResult as protojson into output_json. When there
 	// is no discovery (e.g. the tool produced raw output only), emit an empty
 	// DiscoveryResult so the daemon's JSON parser always gets a valid object.
+	if resp.OutputJSON != "" {
+		emitResponse(&componentpb.CallToolResponse{OutputJson: resp.OutputJSON})
+		return
+	}
 	disc := resp.Discovery
 	if disc == nil {
 		disc = &graphragpb.DiscoveryResult{}

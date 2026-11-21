@@ -96,7 +96,18 @@ linters:
       - ".*_grpc\\.pb\\.go$"
       - "zz_generated.*\\.go$"
       - "api/gen/.*"
-    rules: []
+    rules:
+      # skill-script runs a file that the sandbox launch placed, and the path
+      # is the one variable of the call. The target is a clean relative path
+      # that the runner checks twice (policy.TargetSkillScript, then the
+      # resolve step), the argv is a Go slice and never a shell string, and the
+      # sandbox is the boundary for the script itself. The rule matches only
+      # the one exec line, so any other G204 in the file is still reported.
+      - linters:
+          - gosec
+        text: "G204"
+        path: parsers/skillscript/skillscript\.go
+        source: 'exec\.CommandContext\(ctx, script, req\.Args\.\.\.\)$'
 
 issues:
   max-issues-per-linter: 0

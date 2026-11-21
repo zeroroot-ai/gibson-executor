@@ -1,17 +1,21 @@
-# Security model — gibson-executor
+# Security model: gibson-executor
 
 This document describes the security boundaries of `gibson-executor`
-and the per-tool args allowlist that protects long-running CLI tools
+and the per-tool args policy that protects long-running CLI tools
 (nmap, nuclei, masscan, …) from caller-controlled flag injection.
 
 ## Threat model
 
-The tool runner runs inside a Kubernetes pod with elevated capabilities:
+The tool runner runs as a Setec microVM guest (ADR-0052). The Gibson
+daemon starts one guest for each tool call. There is no Kubernetes
+Deployment, Service or ServiceAccount for this image. The runner holds no
+identity and no credential of its own (see [`docs/auth.md`](docs/auth.md)).
+Inside the guest, the tools have these capabilities:
 
 - `nmap`, `masscan`, `naabu` need raw-socket access (`CAP_NET_RAW`).
 - `httpx`, `nuclei` make outbound HTTP requests to caller-specified
   targets.
-- All tools can in principle write to the pod filesystem.
+- All tools can in principle write to the guest filesystem.
 
 The `req.Args []string` field in every parser's `ExecuteRequest` arrives
 from the daemon's mission planner, which builds it from the **mission
@@ -25,11 +29,13 @@ includes flags that read or write arbitrary paths, such as nmap's
 
 The threat: a malicious or compromised mission spec can use a
 plain-looking tool invocation to read or write any file the tool has
-access to inside the runner pod, including:
+access to inside the guest, including:
 
-- Kubernetes service account tokens at `/var/run/secrets/.../token`
-- Mounted Vault secrets
-- Other tenants' working files in shared scratch volumes
+- The process environment (`/proc/self/environ`). A tool child inherits
+  the runner environment, which holds the call input and the values of
+  the declared secrets (`GIBSON_SECRET_*`).
+- A file that a parser writes from a declared secret, such as a kubeconfig.
+- The Agent Skill files below `/setec/files`.
 
 `req.Target` and `req.Options` arrive from the same mission spec and are
 therefore equally hostile. They are three separate writes into one argv,
@@ -41,27 +47,42 @@ so all three go through a policy:
 | `req.Options` | the same allowlist, per option (`registry.ApplyOption`) |
 | `req.Target` | per-tool target syntax (`registry.ValidateTarget`) |
 
-## Defense: per-tool args allowlist
+## Defense: per-tool args policy
 
-`internal/policy/policy.go` provides the `ArgsPolicy` type — a map of
-**permitted flag name → value validator**. Every parser registers its
-allowlist via `registry.RegisterArgsPolicy(toolName, policy)` from the
-`policy.go` file in its package.
+A parser registers one of two policies for `req.Args` in its `policy.go`.
+Registering one clears the other.
 
-At dispatch, the parser calls `registry.ApplyPolicy(toolName, req.Args, log)`
-which:
+| Policy | Registration | Unknown flag | Parsers today |
+|---|---|---|---|
+| Open, denied by capability class | `registry.RegisterOpenArgsPolicy(toolName, policy.OpenPolicy{...})` | allowed | `nmap` |
+| Allowlist | `registry.RegisterArgsPolicy(toolName, policy.ArgsPolicy{...})` | dropped | `dnsx`, `httpx`, `masscan`, `naabu`, `nuclei`, `subfinder`, `tlsx`, `trivy` |
+
+The open policy (`internal/policy/deny.go`) denies only the flags in its
+`DenySet`. Each denied flag has one class: it writes a caller-named file,
+reads a caller-named file, runs caller scripts, involves a third-party
+machine, or forges packets. New tools use the open policy. Read
+[`docs/tool-args-policy.md`](docs/tool-args-policy.md) before you write a
+`policy.go`.
+
+`kube-bench` and `trivy-k8s` register no args policy. Their `Execute`
+returns an error for any `req.Args`. `skill-script` is described in
+"Agent Skill scripts" below.
+
+At dispatch, the parser calls `registry.ApplyPolicy(toolName, req.Args, log)`.
+This function:
 
 1. Looks up the registered policy.
-2. Filters `req.Args` against the allowlist:
-   - Unknown flags are **dropped** with a structured log event
-     `tool.flag.denied`.
-   - Allowed flags whose value fails the validator return a hard error
+2. Filters `req.Args` against the policy:
+   - A flag that the policy does not allow is **dropped** with the
+     structured log event `tool.flag.denied`.
+   - An allowed flag whose value fails its validator returns a hard error
      (the parser surfaces this as `InvalidArgument`).
-   - A nil policy = "deny every flag" (the strictest default).
+   - A tool with no registered policy denies every flag.
 3. Returns the filtered argv to feed the underlying CLI.
 
 Output-file flags (e.g. `-oN`, `-oX`, `-output`, `--output-filename`) are
-**denied by default** for every tool. The runner itself pins the
+**denied** for every tool. An allowlist does not name them. The nmap open
+policy lists them in its file-write class. The runner itself pins the
 canonical output target (e.g. `-oX -` for nmap, `-oJ -` for masscan) and
 consumes the result on stdout. There is no legitimate reason for a caller
 to override this, and allowing it opens an arbitrary file write or read.
@@ -85,9 +106,10 @@ reads it with the same parser. Two shapes matter:
   `-l /dev/stdin`), so one newline becomes N targets.
 
 `policy.ValidateTarget(target, kinds)` closes both by requiring the
-target to parse as one of the syntaxes the tool documents — an IP, a CIDR
-prefix, a hostname, or an absolute http(s) URL — after rejecting a
-leading `-`, control characters and whitespace outright.
+target to parse as one of the syntaxes the tool documents. These are an
+IP, a CIDR prefix, a hostname, an absolute http(s) URL, or (for `trivy`)
+a container image reference. The check first rejects a leading `-`,
+control characters and whitespace.
 
 Each parser declares its accepted syntaxes with
 `registry.RegisterTargetPolicy(toolName, kinds)` in its `policy.go`, and
@@ -126,12 +148,11 @@ dropped as a stray positional rather than riding onto the argv.
 ## How to add a new tool
 
 1. Create the parser package under `parsers/<tool>/`.
-2. In its `policy.go`, list every safe flag from the tool's official
-   documentation (one map entry per flag), with the appropriate
-   validator. Use `policy.AllowAny` only when the value's shape is
-   policed by the tool itself; prefer `policy.AllowEnum(...)` for
-   bounded sets. Do not allow a path argument (see "Output-file flag
-   policy" below).
+2. In its `policy.go`, register a `policy.OpenPolicy` with
+   `registry.RegisterOpenArgsPolicy`. Name in `policy.Deny(...)` only the
+   flags of the five capability classes. Give a `Validators` entry to each
+   value-bearing flag that an option uses. Do not list the tool's safe
+   flags. Read [`docs/tool-args-policy.md`](docs/tool-args-policy.md).
 3. In the same `policy.go`, declare the target syntaxes the tool
    documents:
    ```go
@@ -173,23 +194,39 @@ dropped as a stray positional rather than riding onto the argv.
 
 ## How to add a new safe flag to an existing tool
 
-Append the entry to the tool's `argsPolicy` map in `policy.go`. Verify
-the existing tests still pass and add a new test asserting the new flag
-is allowed under happy-path inputs.
+An open-policy tool (`nmap`) already allows the flag. Add it to
+`Validators` only if an option needs it or its value needs a shape check.
+
+An allowlist tool needs the entry in the `argsPolicy` map in `policy.go`.
+Make sure the existing tests still pass. Add a test that shows the new
+flag passes with valid input.
 
 ## Output-file flag policy
 
-Output-file flags are the most common attack surface. Each tool's
-`policy.go` enumerates every output flag and **does not** include them
-in the allowlist. If a future feature needs a tool to write to a path
+Output-file flags are the most common attack surface. An allowlist does
+not name them, and an open policy lists them in its file-write class. If a
+future feature needs a tool to write to a path
 that the caller controls, add a validator that keeps the path in a
 runner-managed tempdir. A free-form path is never allowed.
 
+## Agent Skill scripts (`parsers/skillscript`)
+
+The `skill-script` tool runs a script of an Agent Skill that Setec copies
+read-only below `/setec/files`. The script is tenant code, so the boundary
+is the microVM, not an argument filter. `req.Args` gets only a NUL-byte
+check and a size limit. The tool also applies these controls:
+
+- The target must be a clean relative path inside `/setec/files`.
+- The script runs from an argv, with a clean environment.
+- The runner makes itself non-dumpable first, so the script cannot read
+  `/proc/<runner>/environ`.
+- Each output stream is capped at 1 MiB, and the response says when the
+  tool cut it.
+
 ## Process sandbox (`internal/sandbox`)
 
-Every tool invocation is additionally wrapped by the sandbox package,
-which applies four OS-level controls that are orthogonal to the args
-allowlist:
+The sandbox package also wraps every tool call. Its controls are
+independent of the args policy:
 
 ### 1. Process-group isolation (`Setpgid`)
 
@@ -198,7 +235,7 @@ Each child process runs in its own process group (`SysProcAttr.Setpgid
 `SIGKILL` to the entire group (`kill(-pgid, SIGKILL)`), reaching any
 grandchildren the tool may have forked.  Without this, a process that
 forks a grandchild and exits can leave the grandchild running
-indefinitely inside the pod.
+indefinitely inside the guest.
 
 ### 2. Per-tool virtual-memory ceiling (RLIMIT_AS)
 
@@ -282,14 +319,16 @@ by the clock, not by the cap.
 ### Overriding the defaults
 
 There is no Helm chart for this image and no `templates/deployment.yaml`
-to set env vars on. Per ADR-0052, `gibson-executor` runs as a **setec
-microVM guest** launched directly by the gibson daemon — `helm/gibson-workloads/values.yaml`
-in `zeroroot-ai/charts` states outright that this workload "has no
-Deployment, Service, ServiceAccount, or ClusterSPIFFEID in this chart."
+to set env vars on. Per ADR-0052, `gibson-executor` runs as a **Setec
+microVM guest** that the Gibson daemon launches. A comment in
+`helm/gibson-workloads/values.yaml` in `zeroroot-ai/charts` says the same:
+the image "runs only as a setec microVM guest image launched by the
+daemon" and "holds no Zitadel machine user".
 The only override surface today is the sandbox launch environment
 itself: `TOOL_RUNNER_OUTPUT_CAP_BYTES`, `TOOL_RUNNER_MEMORY_BYTES`, and
-`TOOL_RUNNER_SELF_MEMORY_BYTES`, set on `LaunchRequest.Env` by whatever
-calls `harness/sandboxed.Executor`.
+`TOOL_RUNNER_SELF_MEMORY_BYTES`. The daemon sets the guest environment in
+`LaunchRequest.Env` in `internal/engine/harness/sandboxed` of
+`zeroroot-ai/gibson`.
 
 An environment that still sets `TOOL_RUNNER_MEMORY_BYTES` to a value as
 low as the old `256` MiB default is safe: the runner clamps it up to
@@ -304,10 +343,11 @@ resource limits belong to the image or the deployment.
 - **Authorization of the target.** Validation proves the target is a
   well-formed address, prefix, name or URL — not that the caller is
   entitled to scan it. Scope authorization stays with the daemon.
-- **Network rate-limiting.** Enforced by the pod's runtime constraints
-  and by per-tool `CatalogEntry.Resources` hints, not by this package.
+- **Network rate-limiting.** The microVM egress limit and the per-tool
+  `CatalogEntry.Resources` hints control it, not this package.
 - **Wall-clock budget across calls.** Each call is individually bounded
-  (see below), but the runner does not track a budget spanning calls.
+  (see "Per-call deadline" above), but the runner does not track a budget
+  spanning calls.
 
 ## Reporting issues
 
